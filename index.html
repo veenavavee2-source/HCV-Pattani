@@ -644,9 +644,9 @@
       alt: $('#l_alt').val(), hbsag: $('#l_hbsag').val(), hiv: $('#l_hiv').val()
     };
     
+    // ปิดฟอร์มอย่างเดียว ไม่ต้องสั่งเปิดหน้าประวัติซ้ำ (ระบบจะโหลดหน้าบอร์ดใหม่อัตโนมัติอยู่แล้ว)
     sendPostData(payload, () => {
       $('#labFormModal').modal('hide');
-      setTimeout(() => viewLabsHistory(currentHN), 500); 
     });
   }
 
@@ -706,7 +706,6 @@
     let rxID = $('#r_id').val();
     if(!$('#r_med').val() || !$('#r_weeks').val()) return alert("กรุณาเลือกยาและระยะเวลาสัปดาห์ด้วยครับ");
     
-    // แนบค่า Complications ไปด้วย
     let payload = {
       action: rxID === '' ? "addPrescription" : "updatePrescription",
       rxID: rxID, hn: currentHN, rxDate: $('#r_date').val(), 
@@ -714,9 +713,9 @@
       remarks: $('#r_remark').val(), complications: $('#r_complications').val()
     };
     
+    // ปิดฟอร์มอย่างเดียว ไม่ต้องสั่งเปิดหน้าประวัติซ้ำ
     sendPostData(payload, () => {
       $('#txFormModal').modal('hide');
-      setTimeout(() => viewTxHistory(currentHN), 500);
     });
   }
 
