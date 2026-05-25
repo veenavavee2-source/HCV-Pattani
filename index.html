@@ -6,19 +6,26 @@
   <link href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <style>
-    /* บังคับให้หน้าเว็บยืดเต็ม 100% และไม่มีขอบ สำหรับแสดงผลบน Google Sites / GitHub Pages */
     html, body { width: 100%; height: 100%; margin: 0; padding: 0; overflow-x: hidden; background-color: #f4f6f9; font-family: system-ui, -apple-system, sans-serif; }
     .container-fluid { width: 100% !important; min-height: 100vh; padding: 20px; }
-    
     .clickable-cell { cursor: pointer; }
     tr:hover .clickable-cell { background-color: #f1f3f5 !important; }
     .modal-xl { max-width: 90% !important; }
     .filter-card { background-color: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-    /* เพิ่ม style ให้ tooltip เด่นขึ้นเล็กน้อยเมื่อชี้ */
     td[title]:hover { position: relative; }
   </style>
 </head>
 <body>
+
+<div id="loginOverlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(244, 246, 249, 0.98); z-index:9999; display:flex; justify-content:center; align-items:center; backdrop-filter: blur(5px);">
+  <div class="card p-4 shadow-lg text-center border-primary" style="width: 100%; max-width: 350px; border-top: 5px solid #0d6efd; border-radius: 12px;">
+    <h4 class="text-primary fw-bold mb-1">HCV Pattani</h4>
+    <p class="text-secondary mb-4 small">Registry Dashboard</p>
+    <label class="fw-bold mb-2 text-dark">ใส่รหัสผ่านเพื่อเข้าสู่ระบบ</label>
+    <input type="password" id="sysPassword" class="form-control form-control-lg text-center mb-3" placeholder="••••••" style="letter-spacing: 3px;">
+    <button class="btn btn-primary w-100 fw-bold" onclick="checkLogin()">ยืนยัน</button>
+  </div>
+</div>
 
 <div class="container-fluid bg-white p-4 rounded shadow-sm">
   <div class="d-flex justify-content-between align-items-center mb-4">
@@ -244,7 +251,7 @@
         <table class="table table-striped table-bordered text-center align-middle">
           <thead class="table-light">
             <tr>
-              <th>วันที่จ่าย</th><th>ชนิดของยา</th><th>จำนวนสัปดาห์</th><th>หมายเหตุการรักษา</th><th>กำหนดส่ง Labs ครั้งถัดไป</th><th>การแก้ไข / ลบ</th>
+              <th>วันที่จ่าย</th><th>ชนิดของยา</th><th>สัปดาห์</th><th>หมายเหตุ</th><th>Complications</th><th>กำหนดส่ง Labs ครั้งถัดไป</th><th>การแก้ไข / ลบ</th>
             </tr>
           </thead>
           <tbody id="txTableBody"></tbody>
@@ -267,7 +274,8 @@
           <select class="form-control mb-2" id="r_weeks">
             <option value="" selected disabled>- เลือกจำนวนสัปดาห์ -</option><option value="12">12 Weeks</option><option value="24">24 Weeks</option>
           </select>
-          <label class="fw-bold">หมายเหตุ</label><textarea class="form-control mb-3" id="r_remark"></textarea>
+          <label class="fw-bold">Complications</label><textarea class="form-control mb-2 border-danger" id="r_complications" placeholder="บันทึกภาวะแทรกซ้อน (ถ้ามี)"></textarea>
+          <label class="fw-bold">หมายเหตุการรักษา</label><textarea class="form-control mb-3" id="r_remark"></textarea>
           
           <div class="d-flex gap-2">
             <button type="button" class="btn btn-warning w-100 fw-bold text-dark" onclick="submitTxAction()">บันทึกข้อมูล</button>
@@ -303,9 +311,26 @@
   let currentPatientTreatments = [];
 
   $(document).ready(function() {
-    loadDashboard();
     setupEventHandlers();
+    
+    // ระบบรหัสผ่าน กด Enter ได้เลย
+    $('#sysPassword').keypress(function(e) {
+      if(e.which == 13) checkLogin();
+    });
+    
+    // โหลดข้อมูลพื้นหลังรอไว้เลย เพื่อความรวดเร็ว
+    loadDashboard();
   });
+
+  // ฟังก์ชันเช็ครหัสผ่าน
+  function checkLogin() {
+    if($('#sysPassword').val() === '194990') {
+      $('#loginOverlay').fadeOut();
+    } else {
+      alert('รหัสผ่านไม่ถูกต้อง!');
+      $('#sysPassword').val('');
+    }
+  }
 
   function setupEventHandlers() {
     $('#p_source').change(function() {
@@ -384,9 +409,7 @@
   function sendPostData(payload, successCallback) {
     fetch(WEB_APP_URL, {
       method: "POST",
-      headers: { 
-        "Content-Type": "text/plain;charset=utf-8"
-      },
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(payload)
     })
     .then(res => res.json())
@@ -436,6 +459,10 @@
       let labRaw = p.apriDisplay && p.apriDisplay.includes('(') ? p.apriDisplay.split('(')[1].replace(')','') : '';
       let nextRaw = p.nextLabDate !== '-' ? p.nextLabDate : '9999-12-31';
 
+      // จัดการสี High / Low สำหรับหน้า Dashboard
+      let apriColor = p.apriDisplay.includes('High') ? 'text-danger fw-bold' : (p.apriDisplay.includes('Low') ? 'text-primary fw-bold' : '');
+      let fib4Color = p.fib4Display.includes('High') ? 'text-danger fw-bold' : (p.fib4Display.includes('Low') ? 'text-primary fw-bold' : '');
+
       tbody.append(`
         <tr>
           <td class="clickable-cell text-primary fw-bold" onclick="viewPatientProfile('${p.hn}')">${p.hn}</td>
@@ -443,8 +470,8 @@
           <td class="clickable-cell" title="หมายเหตุ: ${p.remarks}" onclick="viewPatientProfile('${p.hn}')"><span class="badge bg-secondary">${p.status}</span></td>
           <td class="clickable-cell" onclick="viewPatientProfile('${p.hn}')">${p.source}</td>
           <td class="clickable-cell fw-bold text-success" onclick="viewPatientProfile('${p.hn}')">${p.hcv}</td>
-          <td class="clickable-cell" title="APRI Score: ${p.apriRaw}" onclick="viewPatientProfile('${p.hn}')">${p.apriDisplay}</td>
-          <td class="clickable-cell" title="FIB-4 Score: ${p.fib4Raw}" onclick="viewPatientProfile('${p.hn}')">${p.fib4Display}</td>
+          <td class="clickable-cell ${apriColor}" title="APRI Score: ${p.apriRaw}" onclick="viewPatientProfile('${p.hn}')">${p.apriDisplay}</td>
+          <td class="clickable-cell ${fib4Color}" title="FIB-4 Score: ${p.fib4Raw}" onclick="viewPatientProfile('${p.hn}')">${p.fib4Display}</td>
           <td class="clickable-cell text-info fw-bold" title="ระยะเวลา: ${p.rxWeeks} สัปดาห์" onclick="viewPatientProfile('${p.hn}')">${p.medType}</td>
           <td class="clickable-cell fw-bold text-danger" onclick="viewPatientProfile('${p.hn}')">${p.nextLabDate}</td>
           <td><button class="btn btn-sm btn-success" onclick="viewLabsHistory('${p.hn}')">Labs</button></td>
@@ -545,19 +572,33 @@
   }
 
   // --- 2. รายละเอียด Labs ---
+  function getColorForTest(val) {
+    if(val === 'Positive') return 'text-danger fw-bold';
+    if(val === 'Negative') return 'text-success fw-bold';
+    return '';
+  }
+
   function viewLabsHistory(hn) {
     currentHN = hn; $('#lab_hn_title').text(hn);
-    
     currentPatientLabs = globalData.labs[hn] || []; 
     
     let tbody = $('#labsTableBody').empty();
     if(currentPatientLabs.length === 0) tbody.append('<tr><td colspan="13">ไม่พบประวัติผลแล็บของคนไข้คนนี้</td></tr>');
     currentPatientLabs.forEach((l, idx) => {
+      
+      // จัดการระบบสีในหน้าจอประวัติ Labs
+      let apriBadge = l.apriLevel === 'High' ? 'bg-danger' : (l.apriLevel === 'Low' ? 'bg-primary' : 'bg-secondary');
+      let fib4Badge = l.fib4Level === 'High' ? 'bg-danger' : (l.fib4Level === 'Low' ? 'bg-primary' : 'bg-secondary');
+      let hbsagColor = getColorForTest(l.hbsag);
+      let hivColor = getColorForTest(l.hiv);
+
       tbody.append(`
         <tr>
-          <td>${l.date}</td><td>${l.hcv}</td><td>${l.gfr}</td><td>${l.platelet}</td><td>${l.ast}</td><td>${l.alt}</td><td>${l.hbsag}</td><td>${l.hiv}</td>
-          <td class="bg-light fw-bold">${l.apri}</td><td><span class="badge bg-info">${l.apriLevel}</span></td>
-          <td class="bg-light fw-bold">${l.fib4}</td><td><span class="badge bg-primary">${l.fib4Level}</span></td>
+          <td>${l.date}</td><td>${l.hcv}</td><td>${l.gfr}</td><td>${l.platelet}</td><td>${l.ast}</td><td>${l.alt}</td>
+          <td class="${hbsagColor}">${l.hbsag || '-'}</td>
+          <td class="${hivColor}">${l.hiv || '-'}</td>
+          <td class="bg-light fw-bold">${l.apri}</td><td><span class="badge ${apriBadge}">${l.apriLevel}</span></td>
+          <td class="bg-light fw-bold">${l.fib4}</td><td><span class="badge ${fib4Badge}">${l.fib4Level}</span></td>
           <td>
             <button class="btn btn-sm btn-outline-secondary me-1" onclick="openEditLabForm(${idx})">แก้ไข</button>
             <button class="btn btn-sm btn-outline-danger" onclick="deleteLabRow('${l.labID}')">ลบ</button>
@@ -573,7 +614,6 @@
     $('#l_id').val(''); 
     
     document.getElementById('labForm').reset(); 
-    
     $('#l_date').val(getTodayThai());
     $('#chkNotDetected').prop('checked', false); 
     $('#l_hcv').prop('disabled', false);
@@ -626,15 +666,16 @@
   // --- 3. รายละเอียดการรักษา/ยา ---
   function viewTxHistory(hn) {
     currentHN = hn; $('#tx_hn_title').text(hn);
-    
     currentPatientTreatments = globalData.treatments[hn] || []; 
     
     let tbody = $('#txTableBody').empty();
-    if(currentPatientTreatments.length === 0) tbody.append('<tr><td colspan="6">ไม่พบประวัติการรับยาของคนไข้คนนี้</td></tr>');
+    if(currentPatientTreatments.length === 0) tbody.append('<tr><td colspan="7">ไม่พบประวัติการรับยาของคนไข้คนนี้</td></tr>');
     currentPatientTreatments.forEach((t, idx) => {
       tbody.append(`
         <tr>
-          <td>${t.date}</td><td class="text-primary fw-bold">${t.medType}</td><td>${t.weeks} Weeks</td><td>${t.remarks || '-'}</td><td class="text-danger fw-bold">${t.nextLab}</td>
+          <td>${t.date}</td><td class="text-primary fw-bold">${t.medType}</td><td>${t.weeks}</td><td>${t.remarks || '-'}</td>
+          <td class="text-danger fw-bold">${t.complications || '-'}</td>
+          <td class="text-danger fw-bold">${t.nextLab}</td>
           <td>
             <button class="btn btn-sm btn-outline-secondary me-1" onclick="openEditTxForm(${idx})">แก้ไข</button>
             <button class="btn btn-sm btn-outline-danger" onclick="deleteTxRow('${t.rxID}')">ลบ</button>
@@ -647,14 +688,16 @@
 
   function openAddTxQuick() {
     $('#txModalHeader').text('บันทึกการรักษา/จ่ายยาใหม่'); $('#r_id').val(''); $('#r_date').val(getTodayThai());
-    $('#r_med').val(''); $('#r_weeks').val(''); $('#r_remark').val('');
+    $('#r_med').val(''); $('#r_weeks').val(''); $('#r_complications').val(''); $('#r_remark').val('');
     $('#btnDeleteTx').hide(); 
     $('#txHistoryModal').modal('hide'); $('#txFormModal').modal('show');
   }
 
   function openEditTxForm(idx) {
     let t = currentPatientTreatments[idx];
-    $('#txModalHeader').text('แก้ไขประวัติข้อมูลการรักษา'); $('#r_id').val(t.rxID); $('#r_date').val(t.date); $('#r_med').val(t.medType); $('#r_weeks').val(t.weeks); $('#r_remark').val(t.remarks);
+    $('#txModalHeader').text('แก้ไขประวัติข้อมูลการรักษา'); 
+    $('#r_id').val(t.rxID); $('#r_date').val(t.date); $('#r_med').val(t.medType); 
+    $('#r_weeks').val(t.weeks); $('#r_complications').val(t.complications); $('#r_remark').val(t.remarks);
     $('#btnDeleteTx').show(); 
     $('#txHistoryModal').modal('hide'); $('#txFormModal').modal('show');
   }
@@ -663,10 +706,12 @@
     let rxID = $('#r_id').val();
     if(!$('#r_med').val() || !$('#r_weeks').val()) return alert("กรุณาเลือกยาและระยะเวลาสัปดาห์ด้วยครับ");
     
+    // แนบค่า Complications ไปด้วย
     let payload = {
       action: rxID === '' ? "addPrescription" : "updatePrescription",
       rxID: rxID, hn: currentHN, rxDate: $('#r_date').val(), 
-      medType: $('#r_med').val(), weeks: $('#r_weeks').val(), remarks: $('#r_remark').val()
+      medType: $('#r_med').val(), weeks: $('#r_weeks').val(), 
+      remarks: $('#r_remark').val(), complications: $('#r_complications').val()
     };
     
     sendPostData(payload, () => {
