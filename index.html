@@ -6,7 +6,10 @@
   <link href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
   <style>
-    body { padding: 20px; background-color: #f4f6f9; font-family: system-ui, -apple-system, sans-serif; }
+    /* บังคับให้หน้าเว็บยืดเต็ม 100% และไม่มีขอบ สำหรับแสดงผลบน Google Sites / GitHub Pages */
+    html, body { width: 100%; height: 100%; margin: 0; padding: 0; overflow-x: hidden; background-color: #f4f6f9; font-family: system-ui, -apple-system, sans-serif; }
+    .container-fluid { width: 100% !important; min-height: 100vh; padding: 20px; }
+    
     .clickable-cell { cursor: pointer; }
     tr:hover .clickable-cell { background-color: #f1f3f5 !important; }
     .modal-xl { max-width: 90% !important; }
@@ -291,9 +294,10 @@
 
 <script>
   const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwh7kT2oXrnMTDKj8fL32dw7ZoLKNcV0NeALz3AoAAFoU4dPbIO0xSCZuLpzn0NVwaUGg/exec";
+  
   let table;
   let currentHN = '';
-  let globalData = {}; // <--- เพิ่มตัวแปรนี้เพื่อเก็บความจำ
+  let globalData = {}; 
   let cachedMeds = [];
   let currentPatientLabs = [];
   let currentPatientTreatments = [];
@@ -377,6 +381,28 @@
       });
   }
 
+  function sendPostData(payload, successCallback) {
+    fetch(WEB_APP_URL, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "text/plain;charset=utf-8"
+      },
+      body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(res => {
+      if(res.status === "success" || typeof res === "string" || res.msg === undefined) {
+        let msg = res.msg || res;
+        alert(msg);
+        if(successCallback) successCallback();
+        loadDashboard(); 
+      } else {
+        alert("เกิดข้อผิดพลาด: " + res.msg);
+      }
+    })
+    .catch(err => alert("การเชื่อมต่อฐานข้อมูลล้มเหลว: " + err));
+  }
+
   $.fn.dataTable.ext.search.push(
     function(settings, data, dataIndex) {
       let checkedSources = $('.filter-source:checked').map(function(){ return this.value; }).get();
@@ -388,29 +414,6 @@
       return true;
     }
   );
-
-  // ฟังก์ชันกลางในการยิงข้อมูล (POST) กลับไปบันทึกที่ Google Sheets
-  function sendPostData(payload, successCallback) {
-    fetch(WEB_APP_URL, {
-      method: "POST",
-      headers: { 
-        "Content-Type": "text/plain;charset=utf-8" // ต้องใช้ text/plain เพื่อเลี่ยงระบบบล็อกของ Google
-      },
-      body: JSON.stringify(payload)
-    })
-    .then(res => res.json())
-    .then(res => {
-      if(res.status === "success" || typeof res === "string" || res.msg === undefined) {
-        let msg = res.msg || res;
-        alert(msg);
-        if(successCallback) successCallback();
-        loadDashboard(); // โหลดหน้าจอบอร์ดใหม่หลังจากทำงานเสร็จ
-      } else {
-        alert("เกิดข้อผิดพลาด: " + res.msg);
-      }
-    })
-    .catch(err => alert("การเชื่อมต่อฐานข้อมูลล้มเหลว: " + err));
-  }
 
   function renderDashboard(responseString) {
     let data = JSON.parse(responseString);
@@ -433,7 +436,6 @@
       let labRaw = p.apriDisplay && p.apriDisplay.includes('(') ? p.apriDisplay.split('(')[1].replace(')','') : '';
       let nextRaw = p.nextLabDate !== '-' ? p.nextLabDate : '9999-12-31';
 
-      // เพิ่มคำสั่ง title="..." เพื่อทำ Tooltip เวลาเอาเม้าส์ชี้
       tbody.append(`
         <tr>
           <td class="clickable-cell text-primary fw-bold" onclick="viewPatientProfile('${p.hn}')">${p.hn}</td>
@@ -458,7 +460,6 @@
       "pageLength": 10, "order": [[11, 'desc']], 
       "columnDefs": [
         { "orderable": false, "targets": [9, 10] }, 
-        // ห้ามค้นหาจากคอลัมน์อื่น ให้ค้นหาได้เฉพาะจากคอลัมน์ HN(0) เท่านั้น
         { "searchable": false, "targets": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14] }
       ]
     });
@@ -467,7 +468,7 @@
   // --- 1. จัดการข้อมูลผู้ป่วย ---
   function viewPatientProfile(hn) {
     currentHN = hn;
-    let p = globalData.profiles[hn]; // ดึงข้อมูลทันที ไม่ต้องรอ google.script.run!
+    let p = globalData.profiles[hn]; 
     if (!p) return;
 
     $('#det_hn_title').text(p.hn);
@@ -499,17 +500,23 @@
     $('#patientDetailsModal').modal('show');
   }
 
-  
-
   function submitPatient() {
     let hn = $('#p_hn').val(), idCard = $('#p_id').val(), dob = $('#p_dob').val(), source = $('#p_source').val();
     if(!hn || !idCard || !dob || !source) return alert("กรุณากรอกฟิลด์สำคัญที่มีดอกจันให้ครบ");
     if(!/^\d{7}$/.test(hn)) return alert("รหัส HN ต้องเป็นตัวเลข 7 หลักเท่านั้นครับ ตัวอย่าง: 0012345");
     
     let releaseDate = $('#chkUnknownRelease').is(':checked') ? "Unknown" : $('#p_release').val();
-    google.script.run.withSuccessHandler(res => {
-      alert(res.msg); if(res.status === "success") { $('#newPatientModal').modal('hide'); document.getElementById('patientForm').reset(); loadDashboard(); }
-    }).addPatient(hn, idCard, dob, $('#p_disease').val(), source, releaseDate, $('#p_status').val(), $('#p_remark').val());
+    
+    let payload = {
+      action: "addPatient", hn: hn, idCard: idCard, dob: dob, 
+      disease: $('#p_disease').val(), source: source, releaseDate: releaseDate, 
+      status: $('#p_status').val(), remarks: $('#p_remark').val()
+    };
+    
+    sendPostData(payload, () => {
+      $('#newPatientModal').modal('hide'); 
+      document.getElementById('patientForm').reset();
+    });
   }
 
   function submitEditPatient() {
@@ -517,23 +524,23 @@
     let newHn = $('#edit_p_hn').val();
     if(!/^\d{7}$/.test(newHn)) return alert("รหัส HN ต้องเป็นตัวเลข 7 หลักเท่านั้นครับ");
 
-    // คำนวณค่ากำหนดการปล่อยตัวเบื้องต้น
     let releaseDate = $('#edit_p_source').val() === 'เรือนจำ' 
       ? ($('#chkEditUnknownRelease').is(':checked') ? "Unknown" : $('#edit_p_release').val())
       : "";
 
-    google.script.run.withSuccessHandler(res => {
-      alert(res.msg); if(res.status === "success") { $('#patientDetailsModal').modal('hide'); loadDashboard(); }
-    }).updatePatient(oldHn, newHn, $('#edit_p_id').val(), $('#edit_p_dob').val(), $('#edit_p_disease').val(), $('#edit_p_source').val(), releaseDate, $('#edit_p_status').val(), $('#edit_p_remark').val());
+    let payload = {
+      action: "updatePatient", oldHn: oldHn, newHn: newHn, idCard: $('#edit_p_id').val(), 
+      dob: $('#edit_p_dob').val(), disease: $('#edit_p_disease').val(), source: $('#edit_p_source').val(), 
+      releaseDate: releaseDate, status: $('#edit_p_status').val(), remarks: $('#edit_p_remark').val()
+    };
+    
+    sendPostData(payload, () => $('#patientDetailsModal').modal('hide'));
   }
 
   function deletePatientAction() {
     let hn = $('#old_p_hn').val();
     if(confirm(`ยืนยันการลบประวัติผู้ป่วย HN: ${hn} ออกจากระบบใช่หรือไม่?\n\n(หากลบแล้วข้อมูลในหน้าลงทะเบียนจะไม่สามารถเรียกคืนได้)`)) {
-      google.script.run.withSuccessHandler(res => {
-        alert(res.msg);
-        if(res.status === "success") { $('#patientDetailsModal').modal('hide'); loadDashboard(); }
-      }).deletePatient(hn);
+      sendPostData({ action: "deletePatient", hn: hn }, () => $('#patientDetailsModal').modal('hide'));
     }
   }
 
@@ -541,7 +548,7 @@
   function viewLabsHistory(hn) {
     currentHN = hn; $('#lab_hn_title').text(hn);
     
-    currentPatientLabs = globalData.labs[hn] || []; // ดึง Labs จากหน่วยความจำทันที
+    currentPatientLabs = globalData.labs[hn] || []; 
     
     let tbody = $('#labsTableBody').empty();
     if(currentPatientLabs.length === 0) tbody.append('<tr><td colspan="13">ไม่พบประวัติผลแล็บของคนไข้คนนี้</td></tr>');
@@ -561,13 +568,10 @@
     $('#labsHistoryModal').modal('show');
   }
 
-  
-
   function openAddLabQuick() {
     $('#labModalHeader').text('บันทึกผล Labs ใหม่'); 
     $('#l_id').val(''); 
     
-    // ต้องทำความสะอาดฟอร์มก่อนนำค่า Date ปัจจุบันไปกรอกลงกล่อง
     document.getElementById('labForm').reset(); 
     
     $('#l_date').val(getTodayThai());
@@ -584,7 +588,7 @@
     if(l.hcv === 'Not detected') { $('#chkNotDetected').prop('checked', true); $('#l_hcv').val('').prop('disabled', true); } 
     else { $('#chkNotDetected').prop('checked', false); $('#l_hcv').val(l.hcv).prop('disabled', false); }
     $('#l_gfr').val(l.gfr); $('#l_platelet').val(l.platelet); $('#l_ast').val(l.ast); $('#l_alt').val(l.alt); $('#l_hbsag').val(l.hbsag); $('#l_hiv').val(l.hiv);
-    $('#btnDeleteLab').show(); // แสดงปุ่มลบเวลาแก้ไข
+    $('#btnDeleteLab').show(); 
     $('#labsHistoryModal').modal('hide'); $('#labFormModal').modal('show');
   }
 
@@ -592,19 +596,30 @@
     let plt = $('#l_platelet').val(), labID = $('#l_id').val();
     if (plt && (plt < 5000 || plt > 2000000)) return alert("Platelet ต้องอยู่ระหว่าง 5,000-2,000,000 ครับ");
     let hcvVal = $('#chkNotDetected').is(':checked') ? 'Not detected' : $('#l_hcv').val();
-    if(labID === '') { 
-      google.script.run.withSuccessHandler(res => { alert(res); $('#labFormModal').modal('hide'); viewLabsHistory(currentHN); loadDashboard(); }).addLabResult(currentHN, $('#l_date').val(), hcvVal, $('#l_gfr').val(), plt, $('#l_ast').val(), $('#l_alt').val(), $('#l_hbsag').val(), $('#l_hiv').val());
-    } else { 
-      google.script.run.withSuccessHandler(res => { alert(res); $('#labFormModal').modal('hide'); viewLabsHistory(currentHN); loadDashboard(); }).updateLabResult(labID, currentHN, $('#l_date').val(), hcvVal, $('#l_gfr').val(), plt, $('#l_ast').val(), $('#l_alt').val(), $('#l_hbsag').val(), $('#l_hiv').val());
-    }
+    
+    let payload = {
+      action: labID === '' ? "addLabResult" : "updateLabResult",
+      labID: labID, hn: currentHN, labDate: $('#l_date').val(), hcv: hcvVal, 
+      gfr: $('#l_gfr').val(), platelet: plt, ast: $('#l_ast').val(), 
+      alt: $('#l_alt').val(), hbsag: $('#l_hbsag').val(), hiv: $('#l_hiv').val()
+    };
+    
+    sendPostData(payload, () => {
+      $('#labFormModal').modal('hide');
+      setTimeout(() => viewLabsHistory(currentHN), 500); 
+    });
   }
 
   function deleteLabAction() {
     let labID = $('#l_id').val();
     if(confirm("ยืนยันการลบผล Lab รายการนี้ใช่หรือไม่?")) {
-      google.script.run.withSuccessHandler(res => {
-        alert(res); $('#labFormModal').modal('hide'); viewLabsHistory(currentHN); loadDashboard();
-      }).deleteLabResult(labID, currentHN);
+      sendPostData({ action: "deleteLabResult", labID: labID, hn: currentHN }, () => $('#labFormModal').modal('hide'));
+    }
+  }
+  
+  function deleteLabRow(labID) {
+    if(confirm("ยืนยันการลบผล Lab รายการนี้ใช่หรือไม่?")) {
+      sendPostData({ action: "deleteLabResult", labID: labID, hn: currentHN }, () => viewLabsHistory(currentHN));
     }
   }
 
@@ -612,7 +627,7 @@
   function viewTxHistory(hn) {
     currentHN = hn; $('#tx_hn_title').text(hn);
     
-    currentPatientTreatments = globalData.treatments[hn] || []; // ดึงประวัติยาจากหน่วยความจำทันที
+    currentPatientTreatments = globalData.treatments[hn] || []; 
     
     let tbody = $('#txTableBody').empty();
     if(currentPatientTreatments.length === 0) tbody.append('<tr><td colspan="6">ไม่พบประวัติการรับยาของคนไข้คนนี้</td></tr>');
@@ -633,33 +648,43 @@
   function openAddTxQuick() {
     $('#txModalHeader').text('บันทึกการรักษา/จ่ายยาใหม่'); $('#r_id').val(''); $('#r_date').val(getTodayThai());
     $('#r_med').val(''); $('#r_weeks').val(''); $('#r_remark').val('');
-    $('#btnDeleteTx').hide(); // ซ่อนปุ่มลบเวลาเพิ่มใหม่
+    $('#btnDeleteTx').hide(); 
     $('#txHistoryModal').modal('hide'); $('#txFormModal').modal('show');
   }
 
   function openEditTxForm(idx) {
     let t = currentPatientTreatments[idx];
     $('#txModalHeader').text('แก้ไขประวัติข้อมูลการรักษา'); $('#r_id').val(t.rxID); $('#r_date').val(t.date); $('#r_med').val(t.medType); $('#r_weeks').val(t.weeks); $('#r_remark').val(t.remarks);
-    $('#btnDeleteTx').show(); // แสดงปุ่มลบเวลาแก้ไข
+    $('#btnDeleteTx').show(); 
     $('#txHistoryModal').modal('hide'); $('#txFormModal').modal('show');
   }
 
   function submitTxAction() {
     let rxID = $('#r_id').val();
     if(!$('#r_med').val() || !$('#r_weeks').val()) return alert("กรุณาเลือกยาและระยะเวลาสัปดาห์ด้วยครับ");
-    if(rxID === '') { 
-      google.script.run.withSuccessHandler(res => { alert(res); $('#txFormModal').modal('hide'); viewTxHistory(currentHN); loadDashboard(); }).addPrescription(currentHN, $('#r_date').val(), $('#r_med').val(), $('#r_weeks').val(), $('#r_remark').val());
-    } else { 
-      google.script.run.withSuccessHandler(res => { alert(res); $('#txFormModal').modal('hide'); viewTxHistory(currentHN); loadDashboard(); }).updatePrescription(rxID, currentHN, $('#r_date').val(), $('#r_med').val(), $('#r_weeks').val(), $('#r_remark').val());
-    }
+    
+    let payload = {
+      action: rxID === '' ? "addPrescription" : "updatePrescription",
+      rxID: rxID, hn: currentHN, rxDate: $('#r_date').val(), 
+      medType: $('#r_med').val(), weeks: $('#r_weeks').val(), remarks: $('#r_remark').val()
+    };
+    
+    sendPostData(payload, () => {
+      $('#txFormModal').modal('hide');
+      setTimeout(() => viewTxHistory(currentHN), 500);
+    });
   }
 
   function deleteTxAction() {
     let rxID = $('#r_id').val();
     if(confirm("ยืนยันการลบประวัติยาและการรักษารายการนี้ใช่หรือไม่?")) {
-      google.script.run.withSuccessHandler(res => {
-        alert(res); $('#txFormModal').modal('hide'); viewTxHistory(currentHN); loadDashboard();
-      }).deletePrescription(rxID, currentHN);
+      sendPostData({ action: "deletePrescription", rxID: rxID, hn: currentHN }, () => $('#txFormModal').modal('hide'));
+    }
+  }
+  
+  function deleteTxRow(rxID) {
+    if(confirm("ยืนยันการลบประวัติยาและการรักษารายการนี้ใช่หรือไม่?")) {
+      sendPostData({ action: "deletePrescription", rxID: rxID, hn: currentHN }, () => viewTxHistory(currentHN));
     }
   }
 </script>
