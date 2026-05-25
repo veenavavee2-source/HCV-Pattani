@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <style>
+    body { padding: 20px; background-color: #f4f6f9; font-family: system-ui, -apple-system, sans-serif; }
+    .clickable-cell { cursor: pointer; }
+    tr:hover .clickable-cell { background-color: #f1f3f5 !important; }
+    .modal-xl { max-width: 90% !important; }
+    .filter-card { background-color: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    /* เพิ่ม style ให้ tooltip เด่นขึ้นเล็กน้อยเมื่อชี้ */
+    td[title]:hover { position: relative; }
+  </style>
+</head>
+<body>
+
+<div class="container-fluid bg-white p-4 rounded shadow-sm">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="text-primary fw-bold m-0">HCV Pattani Registry Dashboard</h2>
+    <button class="btn btn-primary fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#newPatientModal">+ ลงทะเบียนผู้ป่วยใหม่</button>
+  </div>
+
+  <div class="card filter-card mb-4 border-0 border-start border-primary border-4">
+    <div class="card-body p-3">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label fw-bold text-secondary small">กรองตามแหล่งที่มา</label>
+          <div class="dropdown">
+            <button class="btn btn-outline-secondary btn-sm w-100 text-start dropdown-toggle bg-white" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">เลือกแหล่งที่มา...</button>
+            <ul class="dropdown-menu w-100 shadow-sm p-2">
+              <li><label class="dropdown-item"><input type="checkbox" class="form-check-input me-2 filter-chk filter-source" value="รพ.ปัตตานี"> รพ.ปัตตานี</label></li>
+              <li><label class="dropdown-item"><input type="checkbox" class="form-check-input me-2 filter-chk filter-source" value="เรือนจำ"> เรือนจำ</label></li>
+              <li><label class="dropdown-item"><input type="checkbox" class="form-check-input me-2 filter-chk filter-source" value="ส่งจาก รพช."> ส่งจาก รพช.</label></li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label fw-bold text-secondary small">กรองตามสถานะการรักษา</label>
+          <div class="dropdown">
+            <button class="btn btn-outline-secondary btn-sm w-100 text-start dropdown-toggle bg-white" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">เลือกสถานะการรักษา...</button>
+            <ul class="dropdown-menu w-100 shadow-sm p-2">
+              <li><label class="dropdown-item"><input type="checkbox" class="form-check-input me-2 filter-chk filter-status" value="ยังไม่ได้รักษา"> ยังไม่ได้รักษา</label></li>
+              <li><label class="dropdown-item"><input type="checkbox" class="form-check-input me-2 filter-chk filter-status" value="กำลังรักษา"> กำลังรักษา</label></li>
+              <li><label class="dropdown-item"><input type="checkbox" class="form-check-input me-2 filter-chk filter-status" value="รักษาหายแล้ว"> รักษาหายแล้ว</label></li>
+              <li><label class="dropdown-item"><input type="checkbox" class="form-check-input me-2 filter-chk filter-status" value="รักษาไม่หาย แต่กินยาครบ"> รักษาไม่หาย แต่กินยาครบ</label></li>
+              <li><label class="dropdown-item"><input type="checkbox" class="form-check-input me-2 filter-chk filter-status" value="รักษาไม่หาย เนื่องจากกินยาไม่ครบ"> รักษาไม่หาย เนื่องจากกินยาไม่ครบ</label></li>
+              <li><label class="dropdown-item"><input type="checkbox" class="form-check-input me-2 filter-chk filter-status" value="ไม่ทราบผล"> ไม่ทราบผล</label></li>
+            </ul>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label fw-bold text-secondary small">กรองตามชนิดของยาล่าสุด</label>
+          <div class="dropdown">
+            <button class="btn btn-outline-secondary btn-sm w-100 text-start dropdown-toggle bg-white" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside">เลือกชนิดยา...</button>
+            <ul class="dropdown-menu w-100 shadow-sm p-2" id="filterMedDropdown"></ul>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label fw-bold text-secondary small">จัดเรียงลำดับข้อมูลตาม</label>
+          <select id="sortColumn" class="form-select form-select-sm">
+            <option value="0">วันที่ลงทะเบียนผู้ป่วย (ล่าสุดขึ้นก่อน)</option>
+            <option value="1">วันเจาะ Labs ล่าสุด (ล่าสุดขึ้นก่อน)</option>
+            <option value="2">วันที่จ่ายยาล่าสุด (ล่าสุดขึ้นก่อน)</option>
+            <option value="3">กำหนดส่ง Labs ครั้งถัดไป (ใกล้ถึงกำหนดขึ้นก่อน)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <table id="mainTable" class="table table-striped table-bordered align-middle text-center" style="width:100%">
+    <thead class="table-dark">
+      <tr>
+        <th>HN</th>
+        <th>อายุ</th>
+        <th>สถานะการรักษา</th>
+        <th>แหล่งที่มา</th>
+        <th>HCV RNA ล่าสุด</th>
+        <th>APRI Level (วันที่)</th>
+        <th>FIB-4 Level (วันที่)</th>
+        <th>ยาล่าสุด</th>
+        <th>กำหนดส่ง Labs ครั้งถัดไป</th>
+        <th>Labs</th>
+        <th>Medications</th>
+        <th class="d-none">RegRaw</th><th class="d-none">LabRaw</th><th class="d-none">RxRaw</th><th class="d-none">NextRaw</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+</div>
+
+<div class="modal fade" id="newPatientModal">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white"><h5 class="modal-title fw-bold">ลงทะเบียนผู้ป่วยใหม่</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <form id="patientForm">
+          <label class="fw-bold text-secondary">HN *</label>
+          <input type="text" class="form-control mb-2" id="p_hn" required placeholder="ตัวเลข 7 หลัก เช่น 0012345" maxlength="7">
+          <label class="fw-bold text-secondary">เลขบัตรประชาชน หรือ Passport *</label>
+          <input type="text" class="form-control mb-2" id="p_id" required>
+          <label class="fw-bold text-secondary">วันเกิด *</label>
+          <input type="text" class="form-control mb-2 date-th" id="p_dob" placeholder="วว/ดด/ปปปป (พ.ศ.)" required>
+          <label class="fw-bold text-secondary">โรคประจำตัว</label>
+          <input type="text" class="form-control mb-2" id="p_disease">
+          <label class="fw-bold text-secondary">แหล่งที่มา *</label>
+          <select class="form-control mb-2" id="p_source" required>
+            <option value="" selected disabled>- เลือกแหล่งที่มา -</option>
+            <option value="รพ.ปัตตานี">รพ.ปัตตานี</option><option value="เรือนจำ">เรือนจำ</option><option value="ส่งจาก รพช.">ส่งจาก รพช.</option>
+          </select>
+          <div id="releaseDateDiv" style="display: none;">
+            <label class="fw-bold text-secondary">กำหนดการปล่อยตัว(เบื้องต้น)</label>
+            <div class="input-group mb-2">
+              <input type="text" class="form-control date-th" id="p_release" placeholder="วว/ดด/ปปปป (พ.ศ.)">
+              <div class="input-group-text"><input type="checkbox" id="chkUnknownRelease" class="form-check-input mt-0 me-2"> Unknown</div>
+            </div>
+          </div>
+          <label class="fw-bold text-secondary">สถานะการรักษา *</label>
+          <select class="form-control mb-2" id="p_status" required>
+            <option value="ยังไม่ได้รักษา">ยังไม่ได้รักษา</option><option value="กำลังรักษา">กำลังรักษา</option><option value="รักษาหายแล้ว">รักษาหายแล้ว</option><option value="รักษาไม่หาย แต่กินยาครบ">รักษาไม่หาย แต่กินยาครบ</option><option value="รักษาไม่หาย เนื่องจากกินยาไม่ครบ">รักษาไม่หาย เนื่องจากกินยาไม่ครบ</option><option value="ไม่ทราบผล">ไม่ทราบผล</option>
+          </select>
+          <label class="fw-bold text-secondary">หมายเหตุ</label><textarea class="form-control mb-3" id="p_remark"></textarea>
+          <button type="button" class="btn btn-primary w-100 fw-bold" onclick="submitPatient()">ลงทะเบียน</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="patientDetailsModal">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-dark text-white"><h5 class="modal-title fw-bold">ข้อมูลผู้ป่วย HN: <span id="det_hn_title"></span></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <form id="editPatientForm">
+          <input type="hidden" id="old_p_hn">
+          <label class="fw-bold text-primary">HN *</label>
+          <input type="text" class="form-control mb-2 border border-primary fw-bold text-primary" id="edit_p_hn" maxlength="7" placeholder="ตัวเลข 7 หลัก">
+          <label class="fw-bold text-secondary">เลขบัตรประชาชน หรือ Passport *</label><input type="text" class="form-control mb-2" id="edit_p_id">
+          <label class="fw-bold text-secondary">วันเกิด *</label><input type="text" class="form-control mb-2 date-th" id="edit_p_dob">
+          <label class="fw-bold text-secondary">โรคประจำตัว</label><input type="text" class="form-control mb-2" id="edit_p_disease">
+          <label class="fw-bold text-secondary">แหล่งที่มา *</label>
+          <select class="form-control mb-2" id="edit_p_source">
+            <option value="รพ.ปัตตานี">รพ.ปัตตานี</option><option value="เรือนจำ">เรือนจำ</option><option value="ส่งจาก รพช.">ส่งจาก รพช.</option>
+          </select>
+          
+          <div id="editReleaseDateDiv" style="display: none;">
+            <label class="fw-bold text-secondary">กำหนดการปล่อยตัว(เบื้องต้น)</label>
+            <div class="input-group mb-2">
+              <input type="text" class="form-control date-th" id="edit_p_release" placeholder="วว/ดด/ปปปป (พ.ศ.)">
+              <div class="input-group-text"><input type="checkbox" id="chkEditUnknownRelease" class="form-check-input mt-0 me-2"> Unknown</div>
+            </div>
+          </div>
+          
+          <label class="fw-bold text-secondary">สถานะการรักษา *</label>
+          <select class="form-control mb-2" id="edit_p_status">
+            <option value="ยังไม่ได้รักษา">ยังไม่ได้รักษา</option><option value="กำลังรักษา">กำลังรักษา</option><option value="รักษาหายแล้ว">รักษาหายแล้ว</option><option value="รักษาไม่หาย แต่กินยาครบ">รักษาไม่หาย แต่กินยาครบ</option><option value="รักษาไม่หาย เนื่องจากกินยาไม่ครบ">รักษาไม่หาย เนื่องจากกินยาไม่ครบ</option><option value="ไม่ทราบผล">ไม่ทราบผล</option>
+          </select>
+          <label class="fw-bold text-secondary">หมายเหตุ</label><textarea class="form-control mb-3" id="edit_p_remark"></textarea>
+          
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-warning w-100 fw-bold shadow" onclick="submitEditPatient()">บันทึกการแก้ไข</button>
+            <button type="button" class="btn btn-danger w-100 fw-bold shadow" onclick="deletePatientAction()">ลบข้อมูลผู้ป่วย</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="labsHistoryModal">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title fw-bold">ประวัติ Labs (HN: <span id="lab_hn_title"></span>)</h5>
+        <button type="button" class="btn text-white fw-bold border ms-auto me-2" onclick="openAddLabQuick()">+ เพิ่มผล Lab ใหม่</button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body table-responsive">
+        <table class="table table-striped table-bordered text-center align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>วันที่ตรวจ</th><th>HCV RNA</th><th>GFR</th><th>Platelet</th><th>AST</th><th>ALT</th><th>HBsAg</th><th>Anti HIV</th><th>APRI</th><th>APRI Lvl</th><th>FIB-4</th><th>FIB-4 Lvl</th><th>การแก้ไข / ลบ</th>
+            </tr>
+          </thead>
+          <tbody id="labsTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="labFormModal">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white"><h5 class="modal-title fw-bold" id="labModalHeader">จัดการผล Labs</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <form id="labForm">
+          <input type="hidden" id="l_id">
+          <label class="fw-bold">Lab Date *</label><input type="text" class="form-control mb-2 date-th" id="l_date" required>
+          <label class="fw-bold">HCV RNA (IU/mL)</label>
+          <div class="input-group mb-2">
+            <input type="number" class="form-control" id="l_hcv" placeholder="ใส่ตัวเลขค่าแล็บ">
+            <div class="input-group-text"><input type="checkbox" id="chkNotDetected" class="form-check-input mt-0 me-2"> Not detected</div>
+          </div>
+          <div class="row">
+            <div class="col"><label class="fw-bold">GFR</label><input type="number" class="form-control mb-2" id="l_gfr"></div>
+            <div class="col"><label class="fw-bold">Platelet</label><input type="number" class="form-control mb-2" id="l_platelet" placeholder="5,000-2,000,000"></div>
+          </div>
+          <div class="row">
+            <div class="col"><label class="fw-bold">AST (U/L)</label><input type="number" class="form-control mb-2" id="l_ast"></div>
+            <div class="col"><label class="fw-bold">ALT (U/L)</label><input type="number" class="form-control mb-2" id="l_alt"></div>
+          </div>
+          <div class="row">
+            <div class="col"><label class="fw-bold">HBsAg</label><select class="form-control mb-2" id="l_hbsag"><option value="">-</option><option value="Positive">Positive</option><option value="Negative">Negative</option></select></div>
+            <div class="col"><label class="fw-bold">Anti HIV</label><select class="form-control mb-2" id="l_hiv"><option value="">-</option><option value="Positive">Positive</option><option value="Negative">Negative</option></select></div>
+          </div>
+          
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-success w-100 fw-bold" onclick="submitLabAction()">บันทึกข้อมูล Labs</button>
+            <button type="button" class="btn btn-danger w-100 fw-bold" id="btnDeleteLab" onclick="deleteLabAction()">ลบข้อมูล Labs</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="txHistoryModal">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title fw-bold">ประวัติการรักษา/ยา (HN: <span id="tx_hn_title"></span>)</h5>
+        <button type="button" class="btn btn-outline-dark fw-bold ms-auto me-2" onclick="openAddTxQuick()">+ เพิ่มการรักษาใหม่</button>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body table-responsive">
+        <table class="table table-striped table-bordered text-center align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>วันที่จ่าย</th><th>ชนิดของยา</th><th>จำนวนสัปดาห์</th><th>หมายเหตุการรักษา</th><th>กำหนดส่ง Labs ครั้งถัดไป</th><th>การแก้ไข / ลบ</th>
+            </tr>
+          </thead>
+          <tbody id="txTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="txFormModal">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark"><h5 class="modal-title fw-bold" id="txModalHeader">จัดการข้อมูลการรักษา</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <form id="rxForm">
+          <input type="hidden" id="r_id">
+          <label class="fw-bold">Rx Date *</label><input type="text" class="form-control mb-2 date-th" id="r_date" required>
+          <label class="fw-bold">Med Type *</label><select class="form-control mb-2" id="r_med"></select>
+          <label class="fw-bold">Weeks Duration *</label>
+          <select class="form-control mb-2" id="r_weeks">
+            <option value="" selected disabled>- เลือกจำนวนสัปดาห์ -</option><option value="12">12 Weeks</option><option value="24">24 Weeks</option>
+          </select>
+          <label class="fw-bold">หมายเหตุ</label><textarea class="form-control mb-3" id="r_remark"></textarea>
+          
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-warning w-100 fw-bold text-dark" onclick="submitTxAction()">บันทึกข้อมูล</button>
+            <button type="button" class="btn btn-danger w-100 fw-bold" id="btnDeleteTx" onclick="deleteTxAction()">ลบข้อมูล</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="text-center mt-4 mb-2">
+  <small class="text-muted" style="font-size: 0.8rem; letter-spacing: 0.5px;">
+    Powered by <strong>Thinnapat H.</strong>
+  </small>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://npmcdn.com/flatpickr/dist/l10n/th.js"></script>
+
+<script>
+  
+  let table;
+  let currentHN = '';
+  let globalData = {}; // <--- เพิ่มตัวแปรนี้เพื่อเก็บความจำ
+  let cachedMeds = [];
+  let currentPatientLabs = [];
+  let currentPatientTreatments = [];
+
+  $(document).ready(function() {
+    loadDashboard();
+    setupEventHandlers();
+  });
+
+  function setupEventHandlers() {
+    $('#p_source').change(function() {
+      if ($(this).val() === 'เรือนจำ') { $('#releaseDateDiv').slideDown(); } 
+      else { $('#releaseDateDiv').slideUp(); $('#p_release').val(''); $('#chkUnknownRelease').prop('checked', false); }
+    });
+    $('#chkUnknownRelease').change(function(){
+      if(this.checked) { $('#p_release').val('').prop('disabled', true); }
+      else { $('#p_release').prop('disabled', false); }
+    });
+    $('#chkNotDetected').change(function() {
+      if (this.checked) { $('#l_hcv').val('').prop('disabled', true); } 
+      else { $('#l_hcv').prop('disabled', false); }
+    });
+
+    $(document).on('change', '.filter-chk', function() { table.draw(); });
+
+    $('#sortColumn').change(function() {
+      let val = $(this).val();
+      if(val === "0") table.order([11, 'desc']).draw();
+      if(val === "1") table.order([12, 'desc']).draw();
+      if(val === "2") table.order([13, 'desc']).draw();
+      if(val === "3") table.order([14, 'asc']).draw();
+    });
+
+    $('#edit_p_source').change(function() {
+      if ($(this).val() === 'เรือนจำ') { 
+        $('#editReleaseDateDiv').slideDown(); 
+      } else { 
+        $('#editReleaseDateDiv').slideUp(); 
+        $('#edit_p_release').val(''); 
+        $('#chkEditUnknownRelease').prop('checked', false).prop('disabled', false); 
+        $('#edit_p_release').prop('disabled', false);
+      }
+    });
+
+    $('#chkEditUnknownRelease').change(function(){
+      if(this.checked) { $('#edit_p_release').val('').prop('disabled', true); }
+      else { $('#edit_p_release').prop('disabled', false); }
+    });
+
+    initFlatpickr();
+  }
+
+  function initFlatpickr() {
+    flatpickr(".date-th", {
+      locale: "th", dateFormat: "d/m/Y", allowInput: true,
+      formatDate: (date) => `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear() + 543}`,
+      parseDate: (datestr) => {
+        let parts = datestr.split('/');
+        return parts.length === 3 ? new Date(parts[2] - 543, parts[1] - 1, parts[0]) : new Date();
+      }
+    });
+  }
+
+  function getTodayThai() {
+    let d = new Date();
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear() + 543}`;
+  }
+
+  function loadDashboard() {
+    google.script.run.withSuccessHandler(renderDashboard).getInitData();
+  }
+
+  $.fn.dataTable.ext.search.push(
+    function(settings, data, dataIndex) {
+      let checkedSources = $('.filter-source:checked').map(function(){ return this.value; }).get();
+      let checkedStatuses = $('.filter-status:checked').map(function(){ return this.value; }).get();
+      let checkedMeds = $('.filter-med:checked').map(function(){ return this.value; }).get();
+      if (checkedSources.length > 0 && !checkedSources.includes(data[3])) return false;
+      if (checkedStatuses.length > 0 && !checkedStatuses.includes(data[2])) return false;
+      if (checkedMeds.length > 0 && !checkedMeds.includes(data[7])) return false;
+      return true;
+    }
+  );
+
+  function renderDashboard(responseString) {
+    let data = JSON.parse(responseString);
+    globalData = data;
+    cachedMeds = data.meds;
+    
+    $('#filterMedDropdown').empty();
+    cachedMeds.forEach(m => {
+      $('#filterMedDropdown').append(`<li><label class="dropdown-item"><input type="checkbox" class="form-check-input me-2 filter-chk filter-med" value="${m}"> ${m}</label></li>`);
+    });
+
+    $('#r_med').empty().append('<option value="" selected disabled>- เลือกชนิดยา -</option>');
+    cachedMeds.forEach(m => $('#r_med').append(`<option value="${m}">${m}</option>`));
+
+    if (table) table.destroy();
+    let tbody = $('#tableBody').empty();
+    
+    data.dashboard.forEach(p => {
+      let regRaw = p.createdAt ? new Date(p.createdAt).toISOString() : '';
+      let labRaw = p.apriDisplay && p.apriDisplay.includes('(') ? p.apriDisplay.split('(')[1].replace(')','') : '';
+      let nextRaw = p.nextLabDate !== '-' ? p.nextLabDate : '9999-12-31';
+
+      // เพิ่มคำสั่ง title="..." เพื่อทำ Tooltip เวลาเอาเม้าส์ชี้
+      tbody.append(`
+        <tr>
+          <td class="clickable-cell text-primary fw-bold" onclick="viewPatientProfile('${p.hn}')">${p.hn}</td>
+          <td class="clickable-cell" onclick="viewPatientProfile('${p.hn}')">${p.age}</td>
+          <td class="clickable-cell" title="หมายเหตุ: ${p.remarks}" onclick="viewPatientProfile('${p.hn}')"><span class="badge bg-secondary">${p.status}</span></td>
+          <td class="clickable-cell" onclick="viewPatientProfile('${p.hn}')">${p.source}</td>
+          <td class="clickable-cell fw-bold text-success" onclick="viewPatientProfile('${p.hn}')">${p.hcv}</td>
+          <td class="clickable-cell" title="APRI Score: ${p.apriRaw}" onclick="viewPatientProfile('${p.hn}')">${p.apriDisplay}</td>
+          <td class="clickable-cell" title="FIB-4 Score: ${p.fib4Raw}" onclick="viewPatientProfile('${p.hn}')">${p.fib4Display}</td>
+          <td class="clickable-cell text-info fw-bold" title="ระยะเวลา: ${p.rxWeeks} สัปดาห์" onclick="viewPatientProfile('${p.hn}')">${p.medType}</td>
+          <td class="clickable-cell fw-bold text-danger" onclick="viewPatientProfile('${p.hn}')">${p.nextLabDate}</td>
+          <td><button class="btn btn-sm btn-success" onclick="viewLabsHistory('${p.hn}')">Labs</button></td>
+          <td><button class="btn btn-sm btn-warning font-dark" onclick="viewTxHistory('${p.hn}')">การรักษา/ยา</button></td>
+          
+          <td class="d-none">${regRaw}</td><td class="d-none">${labRaw}</td><td class="d-none">${regRaw}</td><td class="d-none">${nextRaw}</td>
+        </tr>
+      `);
+    });
+
+    table = $('#mainTable').DataTable({ 
+      "language": { "search": "ค้นหาจาก HN:", "searchPlaceholder": "พิมพ์เลข HN 7 หลัก..." }, 
+      "pageLength": 10, "order": [[11, 'desc']], 
+      "columnDefs": [
+        { "orderable": false, "targets": [9, 10] }, 
+        // ห้ามค้นหาจากคอลัมน์อื่น ให้ค้นหาได้เฉพาะจากคอลัมน์ HN(0) เท่านั้น
+        { "searchable": false, "targets": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14] }
+      ]
+    });
+  }
+
+  // --- 1. จัดการข้อมูลผู้ป่วย ---
+  function viewPatientProfile(hn) {
+    currentHN = hn;
+    let p = globalData.profiles[hn]; // ดึงข้อมูลทันที ไม่ต้องรอ google.script.run!
+    if (!p) return;
+
+    $('#det_hn_title').text(p.hn);
+    $('#old_p_hn').val(p.hn);
+    $('#edit_p_hn').val(p.hn);
+    $('#edit_p_id').val(p.idCard);
+    $('#edit_p_dob').val(p.dob);
+    $('#edit_p_disease').val(p.disease);
+    $('#edit_p_source').val(p.source);
+    
+    if (p.source === 'เรือนจำ') {
+      $('#editReleaseDateDiv').show();
+      if (p.releaseDate === 'Unknown') {
+        $('#chkEditUnknownRelease').prop('checked', true);
+        $('#edit_p_release').val('').prop('disabled', true);
+      } else {
+        $('#chkEditUnknownRelease').prop('checked', false);
+        $('#edit_p_release').val(p.releaseDate).prop('disabled', false);
+      }
+    } else {
+      $('#editReleaseDateDiv').hide();
+      $('#edit_p_release').val('');
+      $('#chkEditUnknownRelease').prop('checked', false).prop('disabled', false);
+      $('#edit_p_release').prop('disabled', false);
+    }
+    
+    $('#edit_p_status').val(p.status);
+    $('#edit_p_remark').val(p.remarks);
+    $('#patientDetailsModal').modal('show');
+  }
+
+  
+
+  function submitPatient() {
+    let hn = $('#p_hn').val(), idCard = $('#p_id').val(), dob = $('#p_dob').val(), source = $('#p_source').val();
+    if(!hn || !idCard || !dob || !source) return alert("กรุณากรอกฟิลด์สำคัญที่มีดอกจันให้ครบ");
+    if(!/^\d{7}$/.test(hn)) return alert("รหัส HN ต้องเป็นตัวเลข 7 หลักเท่านั้นครับ ตัวอย่าง: 0012345");
+    
+    let releaseDate = $('#chkUnknownRelease').is(':checked') ? "Unknown" : $('#p_release').val();
+    google.script.run.withSuccessHandler(res => {
+      alert(res.msg); if(res.status === "success") { $('#newPatientModal').modal('hide'); document.getElementById('patientForm').reset(); loadDashboard(); }
+    }).addPatient(hn, idCard, dob, $('#p_disease').val(), source, releaseDate, $('#p_status').val(), $('#p_remark').val());
+  }
+
+  function submitEditPatient() {
+    let oldHn = $('#old_p_hn').val();
+    let newHn = $('#edit_p_hn').val();
+    if(!/^\d{7}$/.test(newHn)) return alert("รหัส HN ต้องเป็นตัวเลข 7 หลักเท่านั้นครับ");
+
+    // คำนวณค่ากำหนดการปล่อยตัวเบื้องต้น
+    let releaseDate = $('#edit_p_source').val() === 'เรือนจำ' 
+      ? ($('#chkEditUnknownRelease').is(':checked') ? "Unknown" : $('#edit_p_release').val())
+      : "";
+
+    google.script.run.withSuccessHandler(res => {
+      alert(res.msg); if(res.status === "success") { $('#patientDetailsModal').modal('hide'); loadDashboard(); }
+    }).updatePatient(oldHn, newHn, $('#edit_p_id').val(), $('#edit_p_dob').val(), $('#edit_p_disease').val(), $('#edit_p_source').val(), releaseDate, $('#edit_p_status').val(), $('#edit_p_remark').val());
+  }
+
+  function deletePatientAction() {
+    let hn = $('#old_p_hn').val();
+    if(confirm(`ยืนยันการลบประวัติผู้ป่วย HN: ${hn} ออกจากระบบใช่หรือไม่?\n\n(หากลบแล้วข้อมูลในหน้าลงทะเบียนจะไม่สามารถเรียกคืนได้)`)) {
+      google.script.run.withSuccessHandler(res => {
+        alert(res.msg);
+        if(res.status === "success") { $('#patientDetailsModal').modal('hide'); loadDashboard(); }
+      }).deletePatient(hn);
+    }
+  }
+
+  // --- 2. รายละเอียด Labs ---
+  function viewLabsHistory(hn) {
+    currentHN = hn; $('#lab_hn_title').text(hn);
+    
+    currentPatientLabs = globalData.labs[hn] || []; // ดึง Labs จากหน่วยความจำทันที
+    
+    let tbody = $('#labsTableBody').empty();
+    if(currentPatientLabs.length === 0) tbody.append('<tr><td colspan="13">ไม่พบประวัติผลแล็บของคนไข้คนนี้</td></tr>');
+    currentPatientLabs.forEach((l, idx) => {
+      tbody.append(`
+        <tr>
+          <td>${l.date}</td><td>${l.hcv}</td><td>${l.gfr}</td><td>${l.platelet}</td><td>${l.ast}</td><td>${l.alt}</td><td>${l.hbsag}</td><td>${l.hiv}</td>
+          <td class="bg-light fw-bold">${l.apri}</td><td><span class="badge bg-info">${l.apriLevel}</span></td>
+          <td class="bg-light fw-bold">${l.fib4}</td><td><span class="badge bg-primary">${l.fib4Level}</span></td>
+          <td>
+            <button class="btn btn-sm btn-outline-secondary me-1" onclick="openEditLabForm(${idx})">แก้ไข</button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteLabRow('${l.labID}')">ลบ</button>
+          </td>
+        </tr>
+      `);
+    });
+    $('#labsHistoryModal').modal('show');
+  }
+
+  
+
+  function openAddLabQuick() {
+    $('#labModalHeader').text('บันทึกผล Labs ใหม่'); 
+    $('#l_id').val(''); 
+    
+    // ต้องทำความสะอาดฟอร์มก่อนนำค่า Date ปัจจุบันไปกรอกลงกล่อง
+    document.getElementById('labForm').reset(); 
+    
+    $('#l_date').val(getTodayThai());
+    $('#chkNotDetected').prop('checked', false); 
+    $('#l_hcv').prop('disabled', false);
+    $('#btnDeleteLab').hide();
+    $('#labsHistoryModal').modal('hide'); 
+    $('#labFormModal').modal('show');
+  }
+
+  function openEditLabForm(idx) {
+    let l = currentPatientLabs[idx];
+    $('#labModalHeader').text('แก้ไขข้อมูลผล Lab'); $('#l_id').val(l.labID); $('#l_date').val(l.date);
+    if(l.hcv === 'Not detected') { $('#chkNotDetected').prop('checked', true); $('#l_hcv').val('').prop('disabled', true); } 
+    else { $('#chkNotDetected').prop('checked', false); $('#l_hcv').val(l.hcv).prop('disabled', false); }
+    $('#l_gfr').val(l.gfr); $('#l_platelet').val(l.platelet); $('#l_ast').val(l.ast); $('#l_alt').val(l.alt); $('#l_hbsag').val(l.hbsag); $('#l_hiv').val(l.hiv);
+    $('#btnDeleteLab').show(); // แสดงปุ่มลบเวลาแก้ไข
+    $('#labsHistoryModal').modal('hide'); $('#labFormModal').modal('show');
+  }
+
+  function submitLabAction() {
+    let plt = $('#l_platelet').val(), labID = $('#l_id').val();
+    if (plt && (plt < 5000 || plt > 2000000)) return alert("Platelet ต้องอยู่ระหว่าง 5,000-2,000,000 ครับ");
+    let hcvVal = $('#chkNotDetected').is(':checked') ? 'Not detected' : $('#l_hcv').val();
+    if(labID === '') { 
+      google.script.run.withSuccessHandler(res => { alert(res); $('#labFormModal').modal('hide'); viewLabsHistory(currentHN); loadDashboard(); }).addLabResult(currentHN, $('#l_date').val(), hcvVal, $('#l_gfr').val(), plt, $('#l_ast').val(), $('#l_alt').val(), $('#l_hbsag').val(), $('#l_hiv').val());
+    } else { 
+      google.script.run.withSuccessHandler(res => { alert(res); $('#labFormModal').modal('hide'); viewLabsHistory(currentHN); loadDashboard(); }).updateLabResult(labID, currentHN, $('#l_date').val(), hcvVal, $('#l_gfr').val(), plt, $('#l_ast').val(), $('#l_alt').val(), $('#l_hbsag').val(), $('#l_hiv').val());
+    }
+  }
+
+  function deleteLabAction() {
+    let labID = $('#l_id').val();
+    if(confirm("ยืนยันการลบผล Lab รายการนี้ใช่หรือไม่?")) {
+      google.script.run.withSuccessHandler(res => {
+        alert(res); $('#labFormModal').modal('hide'); viewLabsHistory(currentHN); loadDashboard();
+      }).deleteLabResult(labID, currentHN);
+    }
+  }
+
+  // --- 3. รายละเอียดการรักษา/ยา ---
+  function viewTxHistory(hn) {
+    currentHN = hn; $('#tx_hn_title').text(hn);
+    
+    currentPatientTreatments = globalData.treatments[hn] || []; // ดึงประวัติยาจากหน่วยความจำทันที
+    
+    let tbody = $('#txTableBody').empty();
+    if(currentPatientTreatments.length === 0) tbody.append('<tr><td colspan="6">ไม่พบประวัติการรับยาของคนไข้คนนี้</td></tr>');
+    currentPatientTreatments.forEach((t, idx) => {
+      tbody.append(`
+        <tr>
+          <td>${t.date}</td><td class="text-primary fw-bold">${t.medType}</td><td>${t.weeks} Weeks</td><td>${t.remarks || '-'}</td><td class="text-danger fw-bold">${t.nextLab}</td>
+          <td>
+            <button class="btn btn-sm btn-outline-secondary me-1" onclick="openEditTxForm(${idx})">แก้ไข</button>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteTxRow('${t.rxID}')">ลบ</button>
+          </td>
+        </tr>
+      `);
+    });
+    $('#txHistoryModal').modal('show');
+  }
+
+  function openAddTxQuick() {
+    $('#txModalHeader').text('บันทึกการรักษา/จ่ายยาใหม่'); $('#r_id').val(''); $('#r_date').val(getTodayThai());
+    $('#r_med').val(''); $('#r_weeks').val(''); $('#r_remark').val('');
+    $('#btnDeleteTx').hide(); // ซ่อนปุ่มลบเวลาเพิ่มใหม่
+    $('#txHistoryModal').modal('hide'); $('#txFormModal').modal('show');
+  }
+
+  function openEditTxForm(idx) {
+    let t = currentPatientTreatments[idx];
+    $('#txModalHeader').text('แก้ไขประวัติข้อมูลการรักษา'); $('#r_id').val(t.rxID); $('#r_date').val(t.date); $('#r_med').val(t.medType); $('#r_weeks').val(t.weeks); $('#r_remark').val(t.remarks);
+    $('#btnDeleteTx').show(); // แสดงปุ่มลบเวลาแก้ไข
+    $('#txHistoryModal').modal('hide'); $('#txFormModal').modal('show');
+  }
+
+  function submitTxAction() {
+    let rxID = $('#r_id').val();
+    if(!$('#r_med').val() || !$('#r_weeks').val()) return alert("กรุณาเลือกยาและระยะเวลาสัปดาห์ด้วยครับ");
+    if(rxID === '') { 
+      google.script.run.withSuccessHandler(res => { alert(res); $('#txFormModal').modal('hide'); viewTxHistory(currentHN); loadDashboard(); }).addPrescription(currentHN, $('#r_date').val(), $('#r_med').val(), $('#r_weeks').val(), $('#r_remark').val());
+    } else { 
+      google.script.run.withSuccessHandler(res => { alert(res); $('#txFormModal').modal('hide'); viewTxHistory(currentHN); loadDashboard(); }).updatePrescription(rxID, currentHN, $('#r_date').val(), $('#r_med').val(), $('#r_weeks').val(), $('#r_remark').val());
+    }
+  }
+
+  function deleteTxAction() {
+    let rxID = $('#r_id').val();
+    if(confirm("ยืนยันการลบประวัติยาและการรักษารายการนี้ใช่หรือไม่?")) {
+      google.script.run.withSuccessHandler(res => {
+        alert(res); $('#txFormModal').modal('hide'); viewTxHistory(currentHN); loadDashboard();
+      }).deletePrescription(rxID, currentHN);
+    }
+  }
+</script>
+</body>
+</html>
