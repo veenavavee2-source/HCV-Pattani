@@ -290,7 +290,7 @@
 <script src="https://npmcdn.com/flatpickr/dist/l10n/th.js"></script>
 
 <script>
-  
+  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwh7kT2oXrnMTDKj8fL32dw7ZoLKNcV0NeALz3AoAAFoU4dPbIO0xSCZuLpzn0NVwaUGg/exec";
   let table;
   let currentHN = '';
   let globalData = {}; // <--- เพิ่มตัวแปรนี้เพื่อเก็บความจำ
@@ -363,7 +363,18 @@
   }
 
   function loadDashboard() {
-    google.script.run.withSuccessHandler(renderDashboard).getInitData();
+    if(!table) {
+      $('#tableBody').html('<tr><td colspan="15" class="text-center fw-bold py-4 text-primary">กำลังดาวน์โหลดข้อมูลจากฐานข้อมูล...</td></tr>');
+    }
+    
+    fetch(WEB_APP_URL)
+      .then(response => response.json())
+      .then(data => {
+        renderDashboard(JSON.stringify(data)); 
+      })
+      .catch(err => {
+        alert("โหลดข้อมูลล้มเหลว: " + err.message);
+      });
   }
 
   $.fn.dataTable.ext.search.push(
@@ -377,6 +388,29 @@
       return true;
     }
   );
+
+  // ฟังก์ชันกลางในการยิงข้อมูล (POST) กลับไปบันทึกที่ Google Sheets
+  function sendPostData(payload, successCallback) {
+    fetch(WEB_APP_URL, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "text/plain;charset=utf-8" // ต้องใช้ text/plain เพื่อเลี่ยงระบบบล็อกของ Google
+      },
+      body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(res => {
+      if(res.status === "success" || typeof res === "string" || res.msg === undefined) {
+        let msg = res.msg || res;
+        alert(msg);
+        if(successCallback) successCallback();
+        loadDashboard(); // โหลดหน้าจอบอร์ดใหม่หลังจากทำงานเสร็จ
+      } else {
+        alert("เกิดข้อผิดพลาด: " + res.msg);
+      }
+    })
+    .catch(err => alert("การเชื่อมต่อฐานข้อมูลล้มเหลว: " + err));
+  }
 
   function renderDashboard(responseString) {
     let data = JSON.parse(responseString);
