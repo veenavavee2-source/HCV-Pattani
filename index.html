@@ -175,10 +175,22 @@
             <option value="ยังไม่ได้รักษา">ยังไม่ได้รักษา</option><option value="กำลังรักษา">กำลังรักษา</option><option value="รักษาหายแล้ว">รักษาหายแล้ว</option><option value="รักษาไม่หาย แต่กินยาครบ">รักษาไม่หาย แต่กินยาครบ</option><option value="รักษาไม่หาย เนื่องจากกินยาไม่ครบ">รักษาไม่หาย เนื่องจากกินยาไม่ครบ</option><option value="ไม่ทราบผล">ไม่ทราบผล</option>
           </select>
           <label class="fw-bold text-secondary">หมายเหตุ</label><textarea class="form-control mb-3" id="edit_p_remark"></textarea>
-          <div class="d-flex gap-2">
+          
+          <div class="d-flex gap-2 mb-4">
             <button type="button" class="btn btn-warning w-100 fw-bold shadow" onclick="submitEditPatient()">บันทึกการแก้ไข</button>
             <button type="button" class="btn btn-danger w-100 fw-bold shadow" onclick="deletePatientAction()">ลบข้อมูลผู้ป่วย</button>
           </div>
+
+          <div class="card border-success border-2 shadow-sm">
+            <div class="card-header bg-success text-white fw-bold py-2">
+              📝 สรุปการรักษา (Timeline)
+            </div>
+            <div class="card-body p-2">
+              <textarea id="summaryText" class="form-control mb-2 bg-light border-success" rows="6" readonly style="font-size: 0.85rem; resize: none;"></textarea>
+              <button type="button" class="btn btn-outline-success w-100 fw-bold" onclick="copySummary()">📋 คัดลอกไปวางโปรแกรมอื่น</button>
+            </div>
+          </div>
+
         </form>
       </div>
     </div>
@@ -512,6 +524,17 @@
    
 
   // --- 1. จัดการข้อมูลผู้ป่วย ---
+  // --- 1. จัดการข้อมูลผู้ป่วย ---
+
+  function parseThaiDateForSort(dateStr) {
+    if (!dateStr || dateStr === '-' || dateStr === 'Unknown') return new Date(0);
+    let parts = dateStr.split('/');
+    if (parts.length === 3) {
+      return new Date(parts[2] - 543, parts[1] - 1, parts[0]);
+    }
+    return new Date(0);
+  }
+
   function viewPatientProfile(hn) {
     currentHN = hn; if (!globalData.profiles) return; let p = globalData.profiles[hn]; if (!p) return;
     $('#det_hn_title').text(p.hn); $('#old_p_hn').val(p.hn); $('#edit_p_hn').val(p.hn); $('#edit_p_id').val(p.idCard); $('#edit_p_dob').val(p.dob); $('#edit_p_disease').val(p.disease); $('#edit_p_source').val(p.source);
@@ -520,8 +543,64 @@
       if (p.releaseDate === 'Unknown') { $('#chkEditUnknownRelease').prop('checked', true); $('#edit_p_release').val('').prop('disabled', true); } 
       else { $('#chkEditUnknownRelease').prop('checked', false); $('#edit_p_release').val(p.releaseDate).prop('disabled', false); }
     } else { $('#editReleaseDateDiv').hide(); $('#edit_p_release').val(''); $('#chkEditUnknownRelease').prop('checked', false).prop('disabled', false); $('#edit_p_release').prop('disabled', false); }
-    $('#edit_p_status').val(p.status); $('#edit_p_remark').val(p.remarks); $('#patientDetailsModal').modal('show');
+    $('#edit_p_status').val(p.status); $('#edit_p_remark').val(p.remarks); 
+    
+    // เรียกใช้ฟังก์ชันดึงสรุปการรักษาก่อนเปิดหน้าต่าง
+    generateSummary(hn);
+    
+    $('#patientDetailsModal').modal('show');
   }
+
+  function generateSummary(hn) {
+    let events = [];
+    let pLabs = (globalData.labs && globalData.labs[hn]) ? globalData.labs[hn] : [];
+    let pTx = (globalData.treatments && globalData.treatments[hn]) ? globalData.treatments[hn] : [];
+
+    // นำ Labs และ Tx ยัดรวมในกล่องเดียวกัน เพื่อเตรียมเรียงวันที่
+    pLabs.forEach(l => { events.push({ type: 'lab', dateObj: parseThaiDateForSort(l.date), data: l }); });
+    pTx.forEach(t => { events.push({ type: 'tx', dateObj: parseThaiDateForSort(t.date), data: t }); });
+
+    // เรียงเหตุการณ์จากอดีต -> ปัจจุบัน
+    events.sort((a, b) => a.dateObj - b.dateObj);
+
+    // ประกอบร่างข้อความ Text
+    let summary = `HN: ${hn}\n\n`;
+    events.forEach(e => {
+      if (e.type === 'lab') {
+        let d = e.data;
+        // จัดการหน่วย ถ้าเป็น Not detected จะไม่ใส่ IU/ml ตามหลัง
+        let hcvStr = d.hcv === 'Not detected' ? d.hcv : `${d.hcv || '-'} IU/ ml`;
+        
+        summary += `ผล Labs วันที่ ${d.date}\n`;
+        summary += `HCV RNA : ${hcvStr}\n`;
+        summary += `AST: ${d.ast || '-'}\n`;
+        summary += `ALT: ${d.alt || '-'}\n`;
+        summary += `GFR: ${d.gfr || '-'}\n`;
+        summary += `HBsAg: ${d.hbsag || '-'}\n`;
+        summary += `Anti HIV: ${d.hiv || '-'}\n\n`;
+      } else if (e.type === 'tx') {
+        let d = e.data;
+        summary += `Treatment วันที่ ${d.date}\n`;
+        summary += `Medications: ${d.medType || '-'}\n`;
+        summary += `Weeks: ${d.weeks || '-'}\n\n`;
+      }
+    });
+
+    $('#summaryText').val(summary.trim());
+  }
+
+  function copySummary() {
+    let copyText = document.getElementById("summaryText");
+    copyText.select();
+    copyText.setSelectionRange(0, 99999); // รองรับมือถือ
+    navigator.clipboard.writeText(copyText.value).then(() => {
+      alert("คัดลอกสรุปการรักษาเรียบร้อยแล้ว! สามารถนำไปวางในโปรแกรมอื่นได้เลยครับ");
+    }).catch(err => {
+      alert("ไม่สามารถคัดลอกได้: " + err);
+    });
+  }
+
+  // --- (ฟังก์ชัน submitPatient() ของเดิมอยู่บรรทัดต่อจากนี้) ---
 
   function submitPatient() {
     let hn = $('#p_hn').val(), idCard = $('#p_id').val(), dob = $('#p_dob').val(), source = $('#p_source').val();
