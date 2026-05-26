@@ -559,28 +559,34 @@
     let pLabs = (globalData.labs && globalData.labs[hn]) ? globalData.labs[hn] : [];
     let pTx = (globalData.treatments && globalData.treatments[hn]) ? globalData.treatments[hn] : [];
 
-    // นำ Labs และ Tx ยัดรวมในกล่องเดียวกัน เพื่อเตรียมเรียงวันที่
+    // รวมประวัติแล็บและประวัติการรักษา
     pLabs.forEach(l => { events.push({ type: 'lab', dateObj: parseThaiDateForSort(l.date), data: l }); });
     pTx.forEach(t => { events.push({ type: 'tx', dateObj: parseThaiDateForSort(t.date), data: t }); });
 
-    // เรียงเหตุการณ์จากอดีต -> ปัจจุบัน
+    // เรียงวันที่จากอดีต -> ปัจจุบัน
     events.sort((a, b) => a.dateObj - b.dateObj);
 
-    // ประกอบร่างข้อความ Text
     let summary = `HN: ${hn}\n\n`;
     events.forEach(e => {
       if (e.type === 'lab') {
         let d = e.data;
-        // จัดการหน่วย ถ้าเป็น Not detected จะไม่ใส่ IU/ml ตามหลัง
         let hcvStr = d.hcv === 'Not detected' ? d.hcv : `${d.hcv || '-'} IU/ ml`;
         
+        // ตรวจเช็คเกณฑ์เพื่อให้ได้อักษร (high หรือ low) ตัวพิมพ์เล็กแนบไปกับข้อความสรุป
+        let apriLvlText = d.apri ? (parseFloat(d.apri) >= 1.5 ? 'high' : 'low') : '-';
+        let fib4LvlText = d.fib4 ? (parseFloat(d.fib4) >= 3.25 ? 'high' : 'low') : '-';
+
         summary += `ผล Labs วันที่ ${d.date}\n`;
         summary += `HCV RNA : ${hcvStr}\n`;
         summary += `AST: ${d.ast || '-'}\n`;
         summary += `ALT: ${d.alt || '-'}\n`;
         summary += `GFR: ${d.gfr || '-'}\n`;
         summary += `HBsAg: ${d.hbsag || '-'}\n`;
-        summary += `Anti HIV: ${d.hiv || '-'}\n\n`;
+        summary += `Anti HIV: ${d.hiv || '-'}\n`;
+        // เพิ่มบรรทัดการสรุปผลคะแนน APRI และ FIB-4 พร้อมประเมิน High/Low ลงไปใน Text คัดลอก
+        summary += `APRI: ${d.apri || '-'} (${apriLvlText})\n`;
+        summary += `FIB-4: ${d.fib4 || '-'} (${fib4LvlText})\n\n`;
+        
       } else if (e.type === 'tx') {
         let d = e.data;
         summary += `Treatment วันที่ ${d.date}\n`;
@@ -591,7 +597,7 @@
 
     $('#summaryText').val(summary.trim());
   }
-
+  
   function copySummary() {
     let copyText = document.getElementById("summaryText");
     copyText.select();
