@@ -310,7 +310,7 @@
   let currentHN = '';
   let globalData = {}; 
   let cachedMeds = [];
-  let cachedDoctors = []; // อาเรย์เก็บบัญชีรายชื่อแพทย์
+  let cachedDoctors = []; 
   let currentPatientLabs = [];
   let currentPatientTreatments = [];
 
@@ -320,7 +320,6 @@
     $('#tableBody').html('<tr><td colspan="16" class="text-center text-muted py-4">กรุณาใส่รหัสผ่านที่ถูกต้องเพื่อดูข้อมูล</td></tr>');
   });
 
-  // ข้อ 1: ปรับแต่งให้ปุ่มล็อกอินเปลี่ยนสถานะเป็นสปินเนอร์เพื่อแสดงว่ากำลัง Login
   function checkLogin() {
     let passwordInput = $('#sysPassword').val();
     if(!passwordInput) return alert('กรุณาใส่รหัสผ่าน');
@@ -337,7 +336,7 @@
     })
     .then(res => res.json())
     .then(res => {
-      btn.prop('disabled', false).html(originalText); // คืนสภาพปุ่มเดิม
+      btn.prop('disabled', false).html(originalText); 
       if(res.status === "success") {
         $('#loginOverlay').fadeOut();
         renderDashboard(JSON.stringify(res.data)); 
@@ -411,18 +410,25 @@
     }).catch(err => alert("การเชื่อมต่อฐานข้อมูลล้มเหลว: " + err));
   }
 
+  // ปรับปรุงฟังก์ชันตรวจสอบการกรอง โดยใช้ .trim() ตัดช่องว่างออกเสมอ ป้องกัน Error ไม่ตรงกัน
   $.fn.dataTable.ext.search.push(
     function(settings, data, dataIndex) {
       if (!table) return true;
-      let checkedSources = $('.filter-source:checked').map(function(){ return this.value; }).get();
-      let checkedStatuses = $('.filter-status:checked').map(function(){ return this.value; }).get();
-      let checkedMeds = $('.filter-med:checked').map(function(){ return this.value; }).get();
-      let checkedDocs = $('.filter-doctor:checked').map(function(){ return this.value; }).get(); // อาเรย์ดึงฟิลเตอร์แพทย์
+      let checkedSources = $('.filter-source:checked').map(function(){ return $.trim(this.value); }).get();
+      let checkedStatuses = $('.filter-status:checked').map(function(){ return $.trim(this.value); }).get();
+      let checkedMeds = $('.filter-med:checked').map(function(){ return $.trim(this.value); }).get();
+      let checkedDocs = $('.filter-doctor:checked').map(function(){ return $.trim(this.value); }).get(); 
       
-      if (checkedSources.length > 0 && !checkedSources.includes(data[3])) return false;
-      if (checkedStatuses.length > 0 && !checkedStatuses.includes(data[2])) return false;
-      if (checkedMeds.length > 0 && !checkedMeds.includes(data[7])) return false;
-      if (checkedDocs.length > 0 && !checkedDocs.includes(data[15])) return false; // กรองด้วยแพทย์ล่าสุดจาก Column แฝง 15
+      let rowSource = data[3] ? $.trim(data[3]) : "";
+      let rowStatus = data[2] ? $.trim(data[2]) : "";
+      let rowMed = data[7] ? $.trim(data[7]) : "";
+      let rowDoc = data[15] ? $.trim(data[15]) : "";
+
+      if (checkedSources.length > 0 && !checkedSources.includes(rowSource)) return false;
+      if (checkedStatuses.length > 0 && !checkedStatuses.includes(rowStatus)) return false;
+      if (checkedMeds.length > 0 && !checkedMeds.includes(rowMed)) return false;
+      if (checkedDocs.length > 0 && !checkedDocs.includes(rowDoc)) return false; 
+      
       return true;
     }
   );
@@ -432,19 +438,16 @@
     let data = JSON.parse(responseString);
     globalData = data;
     cachedMeds = data.meds || [];
-    cachedDoctors = data.doctors || []; // โหลดแพทย์ผู้รักษาเก็บเข้าตัวแปรส่วนกลาง
+    cachedDoctors = data.doctors || []; 
 
-    // สร้างตรรกะกรองตามชนิดยา
     $('#filterMedDropdown').empty();
     cachedMeds.forEach(m => { $('#filterMedDropdown').append(`<li><label class="dropdown-item"><input type="checkbox" class="form-check-input me-2 filter-chk filter-med" value="${m}"> ${m}</label></li>`); });
     $('#r_med').empty().append('<option value="" selected disabled>- เลือกชนิดยา -</option>');
     cachedMeds.forEach(m => $('#r_med').append(`<option value="${m}">${m}</option>`));
 
-    // ข้อ 3: แสดงรายการแพทย์ผู้รักษาในส่วนของ Dropdown กรองตารางหน้า Index
     $('#filterDocDropdown').empty();
     cachedDoctors.forEach(d => { $('#filterDocDropdown').append(`<li><label class="dropdown-item"><input type="checkbox" class="form-check-input me-2 filter-chk filter-doctor" value="${d.name}"> ${d.name}</label></li>`); });
 
-    // ข้อ 2: แสดงรายชื่อแพทย์ในแบบฟอร์มลงบันทึก/แก้ไขการรักษา
     $('#r_doc').empty().append('<option value="" selected disabled>- เลือกแพทย์ผู้ให้การรักษา -</option>');
     cachedDoctors.forEach(d => $('#r_doc').append(`<option value="${d.id}">${d.name}</option>`));
 
@@ -460,13 +463,25 @@
         let apriColor = p.apriDisplay.includes('High') ? 'text-danger fw-bold' : (p.apriDisplay.includes('Low') ? 'text-primary fw-bold' : '');
         let fib4Color = p.fib4Display.includes('High') ? 'text-danger fw-bold' : (p.fib4Display.includes('Low') ? 'text-primary fw-bold' : '');
 
+        // จัดการสีป้ายสถานะการรักษา (Status Badges)
+        let statusBadge = 'bg-secondary';
+        if (p.status === 'รักษาหายแล้ว') {
+          statusBadge = 'bg-success';
+        } else if (p.status === 'กำลังรักษา') {
+          statusBadge = 'bg-primary';
+        } else if (p.status && p.status.indexOf('รักษาไม่หาย') !== -1) {
+          statusBadge = 'bg-danger';
+        }
+
         tbody.append(`
           <tr>
             <td class="clickable-cell text-primary fw-bold" onclick="viewPatientProfile('${p.hn}')">
               ${p.hn} <span class="d-none">${p.idCard || ''}</span>
             </td>
             <td class="clickable-cell" onclick="viewPatientProfile('${p.hn}')">${p.age}</td>
-            <td class="clickable-cell" title="หมายเหตุ: ${p.remarks}" onclick="viewPatientProfile('${p.hn}')"><span class="badge bg-secondary">${p.status}</span></td>
+            <td class="clickable-cell" title="หมายเหตุ: ${p.remarks}" onclick="viewPatientProfile('${p.hn}')">
+              <span class="badge ${statusBadge}">${p.status}</span>
+            </td>
             <td class="clickable-cell" onclick="viewPatientProfile('${p.hn}')">${p.source}</td>
             <td class="clickable-cell fw-bold text-success" onclick="viewPatientProfile('${p.hn}')">${p.hcv}</td>
             <td class="clickable-cell ${apriColor}" title="APRI Score: ${p.apriRaw}" onclick="viewPatientProfile('${p.hn}')">${p.apriDisplay}</td>
@@ -567,26 +582,17 @@
   function deleteLabRow(labID) { if(confirm("ยืนยันการลบผล Lab รายการนี้ใช่หรือไม่?")) { sendPostData({ action: "deleteLabResult", labID: labID, hn: currentHN }, () => { $('#labsHistoryModal').modal('hide'); }); } }
 
   // --- 3. รายละเอียดการรักษา/ยา ---
-  // ข้อ 4: ปรับโครงสร้างตารางข้อมูลในประวัติการรักษา/ยา ให้แสดงชื่อแพทย์ผู้ตรวจการรักษา
   function viewTxHistory(hn) {
     currentHN = hn; $('#tx_hn_title').text(hn); currentPatientTreatments = (globalData && globalData.treatments) ? (globalData.treatments[hn] || []) : []; 
-    
     let tbody = $('#txTableBody').empty();
     if(currentPatientTreatments.length === 0) tbody.append('<tr><td colspan="8">ไม่พบประวัติการรับยาของคนไข้คนนี้</td></tr>');
     currentPatientTreatments.forEach((t, idx) => {
       tbody.append(`
         <tr>
-          <td>${t.date}</td>
-          <td class="text-primary fw-bold">${t.medType}</td>
-          <td>${t.weeks} Weeks</td>
-          <td class="text-dark fw-bold">${t.docName}</td>
-          <td>${t.remarks || '-'}</td>
-          <td class="text-danger fw-bold">${t.complications || '-'}</td>
-          <td class="text-danger fw-bold">${t.nextLab}</td>
-          <td>
-            <button class="btn btn-sm btn-outline-secondary me-1" onclick="openEditTxForm(${idx})">แก้ไข</button>
-            <button class="btn btn-sm btn-outline-danger" onclick="deleteTxRow('${t.rxID}')">ลบ</button>
-          </td>
+          <td>${t.date}</td><td class="text-primary fw-bold">${t.medType}</td><td>${t.weeks} Weeks</td>
+          <td class="text-dark fw-bold">${t.docName}</td><td>${t.remarks || '-'}</td>
+          <td class="text-danger fw-bold">${t.complications || '-'}</td><td class="text-danger fw-bold">${t.nextLab}</td>
+          <td><button class="btn btn-sm btn-outline-secondary me-1" onclick="openEditTxForm(${idx})">แก้ไข</button><button class="btn btn-sm btn-outline-danger" onclick="deleteTxRow('${t.rxID}')">ลบ</button></td>
         </tr>
       `);
     });
@@ -603,23 +609,17 @@
     let t = currentPatientTreatments[idx];
     $('#txModalHeader').text('แก้ไขประวัติข้อมูลการรักษา'); 
     $('#r_id').val(t.rxID); $('#r_date').val(t.date); $('#r_med').val(t.medType); $('#r_weeks').val(t.weeks);
-    $('#r_doc').val(t.docID); // ดึงค่ารหัสแพทย์เก่ามาตั้งค่าที่ Select Dropdown
-    $('#r_complications').val(t.complications); $('#r_remark').val(t.remarks);
+    $('#r_doc').val(t.docID); $('#r_complications').val(t.complications); $('#r_remark').val(t.remarks);
     $('#btnDeleteTx').show(); $('#txHistoryModal').modal('hide'); $('#txFormModal').modal('show');
   }
 
   function submitTxAction() {
     let rxID = $('#r_id').val();
     if(!$('#r_med').val() || !$('#r_weeks').val() || !$('#r_doc').val()) return alert("กรุณากรอกฟิลด์ ยา ระยะเวลา และแพทย์ผู้รักษา ให้ครบถ้วนด้วยครับ");
-    
     let payload = {
       action: rxID === '' ? "addPrescription" : "updatePrescription",
-      rxID: rxID, hn: currentHN, rxDate: $('#r_date').val(), 
-      medType: $('#r_med').val(), weeks: $('#r_weeks').val(), 
-      remarks: $('#r_remark').val(), complications: $('#r_complications').val(),
-      docID: $('#r_doc').val() // ส่งรหัส Doc_ID แนบไปด้วยเพื่อนำไปบันทึกที่คอลัมน์ I
+      rxID: rxID, hn: currentHN, rxDate: $('#r_date').val(), medType: $('#r_med').val(), weeks: $('#r_weeks').val(), remarks: $('#r_remark').val(), complications: $('#r_complications').val(), docID: $('#r_doc').val()
     };
-    
     sendPostData(payload, () => { $('#txFormModal').modal('hide'); });
   }
 
