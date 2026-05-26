@@ -466,17 +466,15 @@
         let apriColor = p.apriDisplay.includes('High') ? 'text-danger fw-bold' : (p.apriDisplay.includes('Low') ? 'text-primary fw-bold' : '');
         let fib4Color = p.fib4Display.includes('High') ? 'text-danger fw-bold' : (p.fib4Display.includes('Low') ? 'text-primary fw-bold' : '');
 
-        // จัดการสีป้ายสถานะการรักษา
-        let statusBadge = 'bg-secondary'; // สีเทา (ไม่ทราบผล / หรืออื่นๆ)
+        let statusBadge = 'bg-secondary'; 
         if (p.status === 'รักษาหายแล้ว') {
-          statusBadge = 'bg-success'; // สีเขียว
+          statusBadge = 'bg-success'; 
         } else if (p.status === 'กำลังรักษา') {
-          statusBadge = 'bg-primary'; // สีน้ำเงิน
+          statusBadge = 'bg-primary'; 
         } else if (p.status && p.status.indexOf('รักษาไม่หาย') !== -1) {
-          statusBadge = 'bg-danger'; // สีแดง
+          statusBadge = 'bg-danger'; 
         }
 
-        // เพิ่มแท็ก data-doc ฝังไว้ที่ <tr> เพื่อให้ตัวกรองด้านบนดึงข้อมูลไปตรวจได้แม่นยำ
         tbody.append(`
           <tr data-doc="${p.docName}">
             <td class="clickable-cell text-primary fw-bold" onclick="viewPatientProfile('${p.hn}')">
@@ -501,16 +499,6 @@
         `);
       });
     }
-
-    table = $('#mainTable').DataTable({ 
-      "language": { "search": "ค้นหาข้อมูล:", "searchPlaceholder": "พิมพ์ HN, เลขบัตรประชาชน หรือ Passport..." }, 
-      "pageLength": 10, "order": [[11, 'desc']], 
-      "columnDefs": [
-        { "orderable": false, "targets": [9, 10] }, 
-        { "searchable": false, "targets": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] }
-      ]
-    });
-  }
 
     table = $('#mainTable').DataTable({ 
       "language": { "search": "ค้นหาข้อมูล:", "searchPlaceholder": "พิมพ์ HN, เลขบัตรประชาชน หรือ Passport..." }, 
