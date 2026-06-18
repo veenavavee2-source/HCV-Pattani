@@ -156,7 +156,14 @@
           <label class="fw-bold text-secondary">เลขบัตรประชาชน หรือ Passport *</label>
           <input type="text" class="form-control mb-2" id="p_id" required>
           <label class="fw-bold text-secondary">วันเกิด *</label>
-          <input type="text" class="form-control mb-2 date-th" id="p_dob" placeholder="วว/ดด/ปปปป (พ.ศ.)" required>
+          <div class="d-flex gap-1 align-items-center mb-2">
+            <select id="p_dob_d" class="form-select form-select-sm" style="width:72px" onchange="syncDobHidden('p')"><option value="">วัน</option></select>
+            <select id="p_dob_m" class="form-select form-select-sm" style="flex:1" onchange="syncDobHidden('p')"><option value="">เดือน</option></select>
+            <select id="p_dob_y" class="form-select form-select-sm" style="width:108px" onchange="syncDobHidden('p')"><option value="">ปี พ.ศ.</option></select>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="p_dob_btn" onclick="openDobCal('p')" title="เปิดปฏิทิน">📅</button>
+          </div>
+          <input type="hidden" id="p_dob">
+          <input type="text" id="p_dob_fp" class="d-none">
           <label class="fw-bold text-secondary">โรคประจำตัว</label>
           <input type="text" class="form-control mb-2" id="p_disease">
           <label class="fw-bold text-secondary">แหล่งที่มา *</label>
@@ -201,7 +208,15 @@
           <label class="fw-bold text-primary">HN *</label>
           <input type="text" class="form-control mb-2 border border-primary fw-bold text-primary" id="edit_p_hn" maxlength="7" placeholder="ตัวเลข 7 หลัก">
           <label class="fw-bold text-secondary">เลขบัตรประชาชน หรือ Passport *</label><input type="text" class="form-control mb-2" id="edit_p_id">
-          <label class="fw-bold text-secondary">วันเกิด *</label><input type="text" class="form-control mb-2 date-th" id="edit_p_dob">
+          <label class="fw-bold text-secondary">วันเกิด *</label>
+          <div class="d-flex gap-1 align-items-center mb-2">
+            <select id="edit_p_dob_d" class="form-select form-select-sm" style="width:72px" onchange="syncDobHidden('edit_p')"><option value="">วัน</option></select>
+            <select id="edit_p_dob_m" class="form-select form-select-sm" style="flex:1" onchange="syncDobHidden('edit_p')"><option value="">เดือน</option></select>
+            <select id="edit_p_dob_y" class="form-select form-select-sm" style="width:108px" onchange="syncDobHidden('edit_p')"><option value="">ปี พ.ศ.</option></select>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="edit_p_dob_btn" onclick="openDobCal('edit_p')" title="เปิดปฏิทิน">📅</button>
+          </div>
+          <input type="hidden" id="edit_p_dob">
+          <input type="text" id="edit_p_dob_fp" class="d-none">
           <label class="fw-bold text-secondary">โรคประจำตัว</label><input type="text" class="form-control mb-2" id="edit_p_disease">
           <label class="fw-bold text-secondary">แหล่งที่มา *</label>
           <select class="form-control mb-2" id="edit_p_source">
@@ -472,6 +487,7 @@
       if(this.checked) { $('#edit_p_release').val('').prop('disabled', true); } else { $('#edit_p_release').prop('disabled', false); }
     });
     initFlatpickr();
+    initDobDropdowns();
     initFilterDatepickers();
   }
 
@@ -480,13 +496,59 @@
       formatDate: (date) => `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear() + 543}`,
       parseDate: (datestr) => { let parts = datestr.split('/'); return parts.length === 3 ? new Date(parts[2] - 543, parts[1] - 1, parts[0]) : new Date(); }
     };
-    // date-th ทั่วไป (lab date, rx date, release date)
-    flatpickr(".date-th:not(#p_dob):not(#edit_p_dob)", baseOpts);
-    // DOB — เปิด picker ที่ปี 2518 (1975) ไม่ต้องเลื่อนไกล
-    flatpickr("#p_dob, #edit_p_dob", Object.assign({}, baseOpts, {
-      defaultDate: "1975-01-01",
-      maxDate: "today"
-    }));
+    flatpickr(".date-th", baseOpts);
+  }
+
+  function initDobDropdowns() {
+    let months = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
+                  'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+    ['p', 'edit_p'].forEach(pfx => {
+      let dSel = $(`#${pfx}_dob_d`), mSel = $(`#${pfx}_dob_m`), ySel = $(`#${pfx}_dob_y`);
+      for (let d = 1; d <= 31; d++) dSel.append(`<option value="${String(d).padStart(2,'0')}">${d}</option>`);
+      months.forEach((m, i) => mSel.append(`<option value="${String(i+1).padStart(2,'0')}">${m}</option>`));
+      for (let y = 2553; y >= 2479; y--) ySel.append(`<option value="${y}">${y}</option>`);
+
+      flatpickr(`#${pfx}_dob_fp`, {
+        locale: "th", disableMobile: true, maxDate: "today",
+        defaultDate: new Date(1975, 0, 1),
+        formatDate: (date) => `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')}/${date.getFullYear()+543}`,
+        parseDate: (datestr) => { let parts = datestr.split('/'); return parts.length === 3 ? new Date(parts[2]-543, parts[1]-1, parts[0]) : new Date(); },
+        onChange: (_, dateStr) => {
+          let parts = dateStr.split('/');
+          if (parts.length === 3) {
+            $(`#${pfx}_dob_d`).val(parts[0]);
+            $(`#${pfx}_dob_m`).val(parts[1]);
+            $(`#${pfx}_dob_y`).val(parts[2]);
+            syncDobHidden(pfx);
+          }
+        }
+      });
+    });
+  }
+
+  function syncDobHidden(pfx) {
+    let d = $(`#${pfx}_dob_d`).val(), m = $(`#${pfx}_dob_m`).val(), y = $(`#${pfx}_dob_y`).val();
+    $(`#${pfx}_dob`).val(d && m && y ? `${d}/${m}/${y}` : '');
+  }
+
+  function openDobCal(pfx) {
+    let fp = document.getElementById(`${pfx}_dob_fp`)._flatpickr;
+    let d = $(`#${pfx}_dob_d`).val(), m = $(`#${pfx}_dob_m`).val(), y = $(`#${pfx}_dob_y`).val();
+    if (d && m && y) fp.setDate(new Date(parseInt(y)-543, parseInt(m)-1, parseInt(d)), false);
+    fp.open();
+  }
+
+  function setDobDropdowns(pfx, thaiDateStr) {
+    let parts = (thaiDateStr || '').split('/');
+    if (parts.length === 3) {
+      $(`#${pfx}_dob_d`).val(parts[0]);
+      $(`#${pfx}_dob_m`).val(parts[1]);
+      $(`#${pfx}_dob_y`).val(parts[2]);
+      syncDobHidden(pfx);
+    } else {
+      $(`#${pfx}_dob_d, #${pfx}_dob_m, #${pfx}_dob_y`).val('');
+      $(`#${pfx}_dob`).val('');
+    }
   }
 
   function initFilterDatepickers() {
@@ -681,7 +743,7 @@
 
   function viewPatientProfile(hn) {
     currentHN = hn; if (!globalData.profiles) return; let p = globalData.profiles[hn]; if (!p) return;
-    $('#det_hn_title').text(p.hn); $('#old_p_hn').val(p.hn); $('#edit_p_hn').val(p.hn); $('#edit_p_id').val(p.idCard); $('#edit_p_dob').val(p.dob); $('#edit_p_disease').val(p.disease); $('#edit_p_source').val(p.source);
+    $('#det_hn_title').text(p.hn); $('#old_p_hn').val(p.hn); $('#edit_p_hn').val(p.hn); $('#edit_p_id').val(p.idCard); setDobDropdowns('edit_p', p.dob); $('#edit_p_disease').val(p.disease); $('#edit_p_source').val(p.source);
     if (p.source === 'เรือนจำ') {
       $('#editReleaseDateDiv').show();
       if (p.releaseDate === 'Unknown') { $('#chkEditUnknownRelease').prop('checked', true); $('#edit_p_release').val('').prop('disabled', true); } 
