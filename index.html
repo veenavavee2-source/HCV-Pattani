@@ -261,7 +261,7 @@
         <table class="table table-striped table-bordered text-center align-middle">
           <thead class="table-light">
             <tr>
-              <th>วันที่ตรวจ</th><th>ประเภท Lab</th><th>HCV RNA</th><th>GFR</th><th>Platelet</th><th>AST</th><th>ALT</th><th>HBsAg</th><th>Anti HIV</th><th>APRI</th><th>APRI Lvl</th><th>FIB-4</th><th>FIB-4 Lvl</th><th>การแก้ไข / ลบ</th>
+              <th>วันที่ตรวจ</th><th>ประเภท Lab</th><th>HCV RNA</th><th>GFR</th><th>Platelet</th><th>AST</th><th>ALT</th><th>Hb</th><th>Hct</th><th>HBsAg</th><th>Anti HIV</th><th>APRI</th><th>APRI Lvl</th><th>FIB-4</th><th>FIB-4 Lvl</th><th>การแก้ไข / ลบ</th>
             </tr>
           </thead>
           <tbody id="labsTableBody"></tbody>
@@ -295,6 +295,10 @@
           <div class="row">
             <div class="col"><label class="fw-bold">HBsAg</label><select class="form-control mb-2" id="l_hbsag"><option value="">-</option><option value="Positive">Positive</option><option value="Negative">Negative</option></select></div>
             <div class="col"><label class="fw-bold">Anti HIV</label><select class="form-control mb-2" id="l_hiv"><option value="">-</option><option value="Positive">Positive</option><option value="Negative">Negative</option></select></div>
+          </div>
+          <div class="row">
+            <div class="col"><label class="fw-bold">Hb (g/dL)</label><input type="number" step="0.1" class="form-control mb-2" id="l_hb" placeholder="เช่น 12.5"></div>
+            <div class="col"><label class="fw-bold">Hct (%)</label><input type="number" step="0.1" class="form-control mb-2" id="l_hct" placeholder="เช่น 37.5"></div>
           </div>
           <label class="fw-bold">ประเภท Lab *</label>
           <select class="form-control mb-3" id="l_type" required>
@@ -516,6 +520,7 @@
   function getTodayThai() { let d = new Date(); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear() + 543}`; }
 
   function sendPostData(payload, successCallback) {
+    payload.password = $('#sysPassword').val();
     fetch(WEB_APP_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) })
     .then(res => res.json())
     .then(res => {
@@ -766,7 +771,7 @@
       let hcvDisplay = l.hcvDetected === 'No' ? '<span class="badge bg-success">Not detected</span>' : (l.hcv || '-');
       let labTypeBadgeColor = l.labType === 'Pre-treatment' ? 'bg-secondary' : l.labType === 'On-treatment' ? 'bg-warning text-dark' : l.labType === 'SVR12' || l.labType === 'SVR24' ? 'bg-success' : 'bg-light text-muted';
       let labTypeDisplay = l.labType ? `<span class="badge ${labTypeBadgeColor}">${l.labType}</span>` : '-';
-      tbody.append(`<tr><td>${l.date}</td><td>${labTypeDisplay}</td><td>${hcvDisplay}</td><td>${l.gfr}</td><td>${l.platelet}</td><td>${l.ast}</td><td>${l.alt}</td><td class="${hbsagColor}">${l.hbsag || '-'}</td><td class="${hivColor}">${l.hiv || '-'}</td><td class="bg-light fw-bold">${l.apri}</td><td><span class="badge ${apriBadge}">${l.apriLevel}</span></td><td class="bg-light fw-bold">${l.fib4}</td><td><span class="badge ${fib4Badge}">${l.fib4Level}</span></td><td><button class="btn btn-sm btn-outline-secondary me-1" onclick="openEditLabForm(${idx})">แก้ไข</button><button class="btn btn-sm btn-outline-danger" onclick="deleteLabRow('${l.labID}')">ลบ</button></td></tr>`);
+      tbody.append(`<tr><td>${l.date}</td><td>${labTypeDisplay}</td><td>${hcvDisplay}</td><td>${l.gfr || '-'}</td><td>${l.platelet || '-'}</td><td>${l.ast || '-'}</td><td>${l.alt || '-'}</td><td>${l.hb || '-'}</td><td>${l.hct || '-'}</td><td class="${hbsagColor}">${l.hbsag || '-'}</td><td class="${hivColor}">${l.hiv || '-'}</td><td class="bg-light fw-bold">${l.apri}</td><td><span class="badge ${apriBadge}">${l.apriLevel}</span></td><td class="bg-light fw-bold">${l.fib4}</td><td><span class="badge ${fib4Badge}">${l.fib4Level}</span></td><td><button class="btn btn-sm btn-outline-secondary me-1" onclick="openEditLabForm(${idx})">แก้ไข</button><button class="btn btn-sm btn-outline-danger" onclick="deleteLabRow('${l.labID}')">ลบ</button></td></tr>`);
     });
     $('#labsHistoryModal').modal('show');
   }
@@ -781,14 +786,18 @@
   function openEditLabForm(idx) {
     let l = currentPatientLabs[idx]; $('#labModalHeader').text('แก้ไขข้อมูลผล Lab'); $('#l_id').val(l.labID); $('#l_date').val(l.date);
     if(l.hcvDetected === 'No') { $('#chkNotDetected').prop('checked', true); $('#l_hcv').val('').prop('disabled', true); } else { $('#chkNotDetected').prop('checked', false); $('#l_hcv').val(l.hcv).prop('disabled', false); }
-    $('#l_gfr').val(l.gfr); $('#l_platelet').val(l.platelet); $('#l_ast').val(l.ast); $('#l_alt').val(l.alt); $('#l_hbsag').val(l.hbsag); $('#l_hiv').val(l.hiv); $('#l_type').val(l.labType || ''); $('#btnDeleteLab').show(); $('#labsHistoryModal').modal('hide'); $('#labFormModal').modal('show');
+    $('#l_gfr').val(l.gfr); $('#l_platelet').val(l.platelet); $('#l_ast').val(l.ast); $('#l_alt').val(l.alt); $('#l_hb').val(l.hb); $('#l_hct').val(l.hct); $('#l_hbsag').val(l.hbsag); $('#l_hiv').val(l.hiv); $('#l_type').val(l.labType || ''); $('#btnDeleteLab').show(); $('#labsHistoryModal').modal('hide'); $('#labFormModal').modal('show');
   }
 
   function submitLabAction() {
     let plt = $('#l_platelet').val(), labID = $('#l_id').val();
     if (plt && (plt < 5000 || plt > 2000000)) return alert("Platelet ต้องอยู่ระหว่าง 5,000-2,000,000 ครับ");
+    let gfr = $('#l_gfr').val(), ast = $('#l_ast').val(), alt = $('#l_alt').val();
+    if (gfr && (isNaN(gfr) || Number(gfr) <= 0)) return alert("GFR ต้องเป็นตัวเลขที่มากกว่า 0 ครับ");
+    if (ast && (isNaN(ast) || Number(ast) <= 0)) return alert("AST ต้องเป็นตัวเลขที่มากกว่า 0 ครับ");
+    if (alt && (isNaN(alt) || Number(alt) <= 0)) return alert("ALT ต้องเป็นตัวเลขที่มากกว่า 0 ครับ");
     let notDetected = $('#chkNotDetected').is(':checked');
-    let payload = { action: labID === '' ? "addLabResult" : "updateLabResult", labID: labID, hn: currentHN, labDate: $('#l_date').val(), hcvDetected: notDetected ? 'No' : 'Yes', hcvValue: notDetected ? '' : $('#l_hcv').val(), gfr: $('#l_gfr').val(), platelet: plt, ast: $('#l_ast').val(), alt: $('#l_alt').val(), hbsag: $('#l_hbsag').val(), hiv: $('#l_hiv').val(), labType: $('#l_type').val() };
+    let payload = { action: labID === '' ? "addLabResult" : "updateLabResult", labID: labID, hn: currentHN, labDate: $('#l_date').val(), hcvDetected: notDetected ? 'No' : 'Yes', hcvValue: notDetected ? '' : $('#l_hcv').val(), gfr: $('#l_gfr').val(), platelet: plt, ast: $('#l_ast').val(), alt: $('#l_alt').val(), hb: $('#l_hb').val(), hct: $('#l_hct').val(), hbsag: $('#l_hbsag').val(), hiv: $('#l_hiv').val(), labType: $('#l_type').val() };
     sendPostData(payload, () => { $('#labFormModal').modal('hide'); });
   }
 
