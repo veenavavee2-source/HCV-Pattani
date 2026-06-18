@@ -541,7 +541,8 @@
       let dSel = $(`#${pfx}_dob_d`), mSel = $(`#${pfx}_dob_m`), ySel = $(`#${pfx}_dob_y`);
       for (let d = 1; d <= 31; d++) dSel.append(`<option value="${String(d).padStart(2,'0')}">${d}</option>`);
       months.forEach((m, i) => mSel.append(`<option value="${String(i+1).padStart(2,'0')}">${m}</option>`));
-      for (let y = 2553; y >= 2479; y--) ySel.append(`<option value="${y}">${y}</option>`);
+      let currentYearBE = new Date().getFullYear() + 543;
+      for (let y = currentYearBE; y >= 2479; y--) ySel.append(`<option value="${y}">${y}</option>`);
 
       flatpickr(`#${pfx}_dob_fp`, {
         locale: "th", disableMobile: true, maxDate: "today",
