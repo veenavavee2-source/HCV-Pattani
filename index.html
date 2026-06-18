@@ -394,6 +394,15 @@
   <small class="text-muted" style="font-size: 0.8rem; letter-spacing: 0.5px;">Powered by <strong>Thinnapat H.</strong></small>
 </div>
 
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:11000">
+  <div id="appToast" class="toast align-items-center text-white border-0" role="alert" aria-live="assertive">
+    <div class="d-flex">
+      <div class="toast-body fw-bold" id="appToastMsg"></div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
@@ -403,7 +412,21 @@
 
 <script>
   const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwh7kT2oXrnMTDKj8fL32dw7ZoLKNcV0NeALz3AoAAFoU4dPbIO0xSCZuLpzn0NVwaUGg/exec";
-  
+
+  function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  function showToast(msg, type = 'success') {
+    let toast = document.getElementById('appToast');
+    let bg = { success: 'bg-success', error: 'bg-danger', warning: 'bg-warning' };
+    toast.className = `toast align-items-center border-0 ${bg[type] || 'bg-success'} ${type === 'warning' ? 'text-dark' : 'text-white'}`;
+    document.getElementById('appToastMsg').textContent = msg;
+    bootstrap.Toast.getOrCreateInstance(toast, { delay: 3000 }).show();
+  }
+
+  let loginFailCount = 0;
+  let loginLockUntil = 0;
   let table;
   let currentHN = '';
   let globalData = {}; 
@@ -419,6 +442,10 @@
   });
 
   function checkLogin() {
+    if (Date.now() < loginLockUntil) {
+      let secsLeft = Math.ceil((loginLockUntil - Date.now()) / 1000);
+      return alert(`ระบบล็อกชั่วคราว กรุณารอ ${secsLeft} วินาทีแล้วลองใหม่`);
+    }
     let passwordInput = $('#sysPassword').val();
     if(!passwordInput) return alert('กรุณาใส่รหัสผ่าน');
 
@@ -434,12 +461,20 @@
     })
     .then(res => res.json())
     .then(res => {
-      btn.prop('disabled', false).html(originalText); 
+      btn.prop('disabled', false).html(originalText);
       if(res.status === "success") {
+        loginFailCount = 0;
         $('#loginOverlay').fadeOut();
-        renderDashboard(JSON.stringify(res.data)); 
+        renderDashboard(JSON.stringify(res.data));
       } else {
-        alert(res.msg);
+        loginFailCount++;
+        if (loginFailCount >= 5) {
+          loginLockUntil = Date.now() + 30000;
+          loginFailCount = 0;
+          alert('พิมพ์รหัสผ่านผิด 5 ครั้ง ระบบล็อก 30 วินาที');
+        } else {
+          alert(`${res.msg} (ครั้งที่ ${loginFailCount}/5)`);
+        }
         $('#sysPassword').val('');
         $('#tableBody').html('<tr><td colspan="16" class="text-center text-muted py-4">กรุณาใส่รหัสผ่านที่ถูกต้องเพื่อดูข้อมูล</td></tr>');
       }
@@ -606,7 +641,7 @@
       $allBtns.prop('disabled', false);
       if ($submitBtn.length) $submitBtn.html(originalHtml);
       if(res.status === "success" || typeof res === "string" || res.msg === undefined) {
-        let msg = res.msg || res; alert(msg); if(successCallback) successCallback(); loadDashboard();
+        let msg = res.msg || res; showToast(String(msg)); if(successCallback) successCallback(); loadDashboard();
       } else { alert("เกิดข้อผิดพลาด: " + res.msg); }
     }).catch(err => {
       isSending = false;
@@ -697,25 +732,25 @@
         else if (p.patientStatus === 'พ้นโทษ/ย้ายออก' || p.patientStatus === 'ส่งต่อ รพ.อื่น') psBadge = 'bg-secondary';
 
         tbody.append(`
-          <tr data-doc="${p.docName}" data-source="${p.source}" data-status="${p.status}" data-med="${p.medType}" data-pstatus="${p.patientStatus}" data-regdate="${regRaw}" data-rxdate="${rxRaw}">
+          <tr data-doc="${esc(p.docName)}" data-source="${esc(p.source)}" data-status="${esc(p.status)}" data-med="${esc(p.medType)}" data-pstatus="${esc(p.patientStatus)}" data-regdate="${regRaw}" data-rxdate="${rxRaw}">
             <td class="clickable-cell text-primary fw-bold" onclick="viewPatientProfile('${p.hn}')">
-              ${p.hn} <span class="d-none">${p.idCard || ''}</span>
+              ${esc(p.hn)} <span class="d-none">${esc(p.idCard || '')}</span>
             </td>
-            <td class="clickable-cell" onclick="viewPatientProfile('${p.hn}')">${p.age}</td>
-            <td class="clickable-cell" title="หมายเหตุ: ${p.remarks}" onclick="viewPatientProfile('${p.hn}')">
-              <span class="badge ${statusBadge}">${p.status}</span>
+            <td class="clickable-cell" onclick="viewPatientProfile('${p.hn}')">${esc(String(p.age))}</td>
+            <td class="clickable-cell" title="หมายเหตุ: ${esc(p.remarks)}" onclick="viewPatientProfile('${p.hn}')">
+              <span class="badge ${statusBadge}">${esc(p.status)}</span>
             </td>
-            <td class="clickable-cell" onclick="viewPatientProfile('${p.hn}')"><span class="badge ${psBadge}">${p.patientStatus || 'Active'}</span></td>
-            <td class="clickable-cell" onclick="viewPatientProfile('${p.hn}')">${p.source}</td>
-            <td class="clickable-cell fw-bold text-success" onclick="viewPatientProfile('${p.hn}')">${p.hcv}</td>
-            <td class="clickable-cell ${apriColor}" title="APRI Score: ${p.apriRaw}" onclick="viewPatientProfile('${p.hn}')">${p.apriDisplay}</td>
-            <td class="clickable-cell ${fib4Color}" title="FIB-4 Score: ${p.fib4Raw}" onclick="viewPatientProfile('${p.hn}')">${p.fib4Display}</td>
-            <td class="clickable-cell fw-bold text-danger" onclick="viewPatientProfile('${p.hn}')">${p.nextLabDate}</td>
+            <td class="clickable-cell" onclick="viewPatientProfile('${p.hn}')"><span class="badge ${psBadge}">${esc(p.patientStatus || 'Active')}</span></td>
+            <td class="clickable-cell" onclick="viewPatientProfile('${p.hn}')">${esc(p.source)}</td>
+            <td class="clickable-cell fw-bold text-success" onclick="viewPatientProfile('${p.hn}')">${esc(p.hcv)}</td>
+            <td class="clickable-cell ${apriColor}" title="APRI Score: ${esc(p.apriRaw)}" onclick="viewPatientProfile('${p.hn}')">${esc(p.apriDisplay)}</td>
+            <td class="clickable-cell ${fib4Color}" title="FIB-4 Score: ${esc(p.fib4Raw)}" onclick="viewPatientProfile('${p.hn}')">${esc(p.fib4Display)}</td>
+            <td class="clickable-cell fw-bold text-danger" onclick="viewPatientProfile('${p.hn}')">${esc(p.nextLabDate)}</td>
             <td><button class="btn btn-sm btn-success" onclick="viewLabsHistory('${p.hn}')">Labs</button></td>
             <td><button class="btn btn-sm btn-warning font-dark" onclick="viewTxHistory('${p.hn}')">การรักษา/ยา</button></td>
-            
+
             <td class="d-none">${regRaw}</td><td class="d-none">${labRaw}</td><td class="d-none">${rxRaw}</td><td class="d-none">${nextRaw}</td>
-            <td class="d-none">${p.docName}</td>
+            <td class="d-none">${esc(p.docName)}</td>
           </tr>
         `);
       });
@@ -723,7 +758,7 @@
 
     table = $('#mainTable').DataTable({ 
       "language": { "search": "ค้นหาข้อมูล:", "searchPlaceholder": "พิมพ์ HN, เลขบัตรประชาชน หรือ Passport..." }, 
-      "pageLength": 10, "order": [[11, 'desc']], 
+      "pageLength": 20, "order": [[11, 'desc']],
       "scrollX": true,
       "columnDefs": [
         { "orderable": false, "targets": [9, 10] }, 
@@ -812,7 +847,7 @@
     copyText.select();
     copyText.setSelectionRange(0, 99999); // รองรับมือถือ
     navigator.clipboard.writeText(copyText.value).then(() => {
-      alert("คัดลอกสรุปการรักษาเรียบร้อยแล้ว! สามารถนำไปวางในโปรแกรมอื่นได้เลยครับ");
+      showToast('คัดลอกสรุปการรักษาเรียบร้อยแล้ว!');
     }).catch(err => {
       alert("ไม่สามารถคัดลอกได้: " + err);
     });
@@ -856,10 +891,10 @@
       let apriBadge = l.apriLevel === 'High' ? 'bg-danger' : (l.apriLevel === 'Low' ? 'bg-primary' : 'bg-secondary');
       let fib4Badge = l.fib4Level === 'High' ? 'bg-danger' : (l.fib4Level === 'Low' ? 'bg-primary' : 'bg-secondary');
       let hbsagColor = getColorForTest(l.hbsag); let hivColor = getColorForTest(l.hiv);
-      let hcvDisplay = l.hcvDetected === 'No' ? '<span class="badge bg-success">Not detected</span>' : (l.hcv || '-');
+      let hcvDisplay = l.hcvDetected === 'No' ? '<span class="badge bg-success">Not detected</span>' : esc(l.hcv || '-');
       let labTypeBadgeColor = l.labType === 'Pre-treatment' ? 'bg-secondary' : l.labType === 'On-treatment' ? 'bg-warning text-dark' : l.labType === 'SVR12' || l.labType === 'SVR24' ? 'bg-success' : 'bg-light text-muted';
-      let labTypeDisplay = l.labType ? `<span class="badge ${labTypeBadgeColor}">${l.labType}</span>` : '-';
-      tbody.append(`<tr><td>${l.date}</td><td>${labTypeDisplay}</td><td>${hcvDisplay}</td><td>${l.gfr || '-'}</td><td>${l.platelet || '-'}</td><td>${l.ast || '-'}</td><td>${l.alt || '-'}</td><td>${l.hb || '-'}</td><td>${l.hct || '-'}</td><td class="${hbsagColor}">${l.hbsag || '-'}</td><td class="${hivColor}">${l.hiv || '-'}</td><td class="bg-light fw-bold">${l.apri}</td><td><span class="badge ${apriBadge}">${l.apriLevel}</span></td><td class="bg-light fw-bold">${l.fib4}</td><td><span class="badge ${fib4Badge}">${l.fib4Level}</span></td><td><button class="btn btn-sm btn-outline-secondary me-1" onclick="openEditLabForm(${idx})">แก้ไข</button><button class="btn btn-sm btn-outline-danger" onclick="deleteLabRow('${l.labID}')">ลบ</button></td></tr>`);
+      let labTypeDisplay = l.labType ? `<span class="badge ${labTypeBadgeColor}">${esc(l.labType)}</span>` : '-';
+      tbody.append(`<tr><td>${esc(l.date)}</td><td>${labTypeDisplay}</td><td>${hcvDisplay}</td><td>${esc(String(l.gfr || '-'))}</td><td>${esc(String(l.platelet || '-'))}</td><td>${esc(String(l.ast || '-'))}</td><td>${esc(String(l.alt || '-'))}</td><td>${esc(String(l.hb || '-'))}</td><td>${esc(String(l.hct || '-'))}</td><td class="${hbsagColor}">${esc(l.hbsag || '-')}</td><td class="${hivColor}">${esc(l.hiv || '-')}</td><td class="bg-light fw-bold">${esc(String(l.apri))}</td><td><span class="badge ${apriBadge}">${esc(l.apriLevel)}</span></td><td class="bg-light fw-bold">${esc(String(l.fib4))}</td><td><span class="badge ${fib4Badge}">${esc(l.fib4Level)}</span></td><td><button class="btn btn-sm btn-outline-secondary me-1" onclick="openEditLabForm(${idx})">แก้ไข</button><button class="btn btn-sm btn-outline-danger" onclick="deleteLabRow('${l.labID}')">ลบ</button></td></tr>`);
     });
     $('#labsHistoryModal').modal('show');
   }
@@ -900,9 +935,9 @@
     currentPatientTreatments.forEach((t, idx) => {
       tbody.append(`
         <tr>
-          <td>${t.date}</td><td class="text-secondary fw-bold">${t.treatmentType || '-'}</td><td class="text-primary fw-bold">${t.medName || t.medType}</td><td>${t.weeks} Weeks</td>
-          <td class="text-dark fw-bold">${t.docName}</td><td>${t.remarks || '-'}</td>
-          <td class="text-danger fw-bold">${t.complications || '-'}</td><td class="text-danger fw-bold">${t.nextLab}</td>
+          <td>${esc(t.date)}</td><td class="text-secondary fw-bold">${esc(t.treatmentType || '-')}</td><td class="text-primary fw-bold">${esc(t.medName || t.medType)}</td><td>${esc(String(t.weeks))} Weeks</td>
+          <td class="text-dark fw-bold">${esc(t.docName)}</td><td>${esc(t.remarks || '-')}</td>
+          <td class="text-danger fw-bold">${esc(t.complications || '-')}</td><td class="text-danger fw-bold">${esc(t.nextLab)}</td>
           <td><button class="btn btn-sm btn-outline-secondary me-1" onclick="openEditTxForm(${idx})">แก้ไข</button><button class="btn btn-sm btn-outline-danger" onclick="deleteTxRow('${t.rxID}')">ลบ</button></td>
         </tr>
       `);
