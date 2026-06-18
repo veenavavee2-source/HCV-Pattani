@@ -528,7 +528,11 @@
 
   function syncDobHidden(pfx) {
     let d = $(`#${pfx}_dob_d`).val(), m = $(`#${pfx}_dob_m`).val(), y = $(`#${pfx}_dob_y`).val();
-    $(`#${pfx}_dob`).val(d && m && y ? `${d}/${m}/${y}` : '');
+    if (!d || !m || !y) { $(`#${pfx}_dob`).val(''); return; }
+    let testDate = new Date(parseInt(y) - 543, parseInt(m) - 1, parseInt(d));
+    let valid = testDate.getFullYear() === parseInt(y) - 543 && testDate.getMonth() === parseInt(m) - 1 && testDate.getDate() === parseInt(d);
+    $(`#${pfx}_dob`).val(valid ? `${d}/${m}/${y}` : '');
+    if (!valid) $(`#${pfx}_dob_d`).val('');
   }
 
   function openDobCal(pfx) {
@@ -673,10 +677,10 @@
     
     if (data.dashboard && data.dashboard.forEach) {
       data.dashboard.forEach(p => {
-        let regRaw = p.createdAt ? new Date(p.createdAt).toISOString() : '';
-        let rxRaw  = p.rxDateRaw ? new Date(p.rxDateRaw).toISOString() : '';
-        let labRaw = p.apriDisplay && p.apriDisplay.includes('(') ? p.apriDisplay.split('(')[1].replace(')','') : '';
-        let nextRaw = p.nextLabDate !== '-' ? p.nextLabDate : '9999-12-31';
+        let regRaw  = p.createdAt ? new Date(p.createdAt).toISOString() : '';
+        let rxRaw   = p.rxDateRaw ? new Date(p.rxDateRaw).toISOString() : '';
+        let labRaw  = p.lastLabDateRaw || '';
+        let nextRaw = p.nextLabRaw || '9999-12-31';
 
         let apriColor = p.apriDisplay.includes('High') ? 'text-danger fw-bold' : (p.apriDisplay.includes('Low') ? 'text-primary fw-bold' : '');
         let fib4Color = p.fib4Display.includes('High') ? 'text-danger fw-bold' : (p.fib4Display.includes('Low') ? 'text-primary fw-bold' : '');
