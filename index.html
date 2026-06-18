@@ -519,15 +519,35 @@
 
   function getTodayThai() { let d = new Date(); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear() + 543}`; }
 
+  let isSending = false;
+
   function sendPostData(payload, successCallback) {
+    if (isSending) return;
+    isSending = true;
     payload.password = $('#sysPassword').val();
+
+    let $activeModal = $('.modal.show');
+    let $allBtns = $activeModal.find('button');
+    $allBtns.prop('disabled', true);
+    let $submitBtn = $activeModal.find('.btn-success, .btn-warning.text-dark, .btn-primary').first();
+    let originalHtml = $submitBtn.html();
+    if ($submitBtn.length) $submitBtn.html('<span class="spinner-border spinner-border-sm me-1"></span>กำลังบันทึก...');
+
     fetch(WEB_APP_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(payload) })
     .then(res => res.json())
     .then(res => {
+      isSending = false;
+      $allBtns.prop('disabled', false);
+      if ($submitBtn.length) $submitBtn.html(originalHtml);
       if(res.status === "success" || typeof res === "string" || res.msg === undefined) {
-        let msg = res.msg || res; alert(msg); if(successCallback) successCallback(); loadDashboard(); 
+        let msg = res.msg || res; alert(msg); if(successCallback) successCallback(); loadDashboard();
       } else { alert("เกิดข้อผิดพลาด: " + res.msg); }
-    }).catch(err => alert("การเชื่อมต่อฐานข้อมูลล้มเหลว: " + err));
+    }).catch(err => {
+      isSending = false;
+      $allBtns.prop('disabled', false);
+      if ($submitBtn.length) $submitBtn.html(originalHtml);
+      alert("การเชื่อมต่อฐานข้อมูลล้มเหลว: " + err);
+    });
   }
 
   // ปรับปรุงฟังก์ชันตรวจสอบการกรอง โดยใช้ .trim() ตัดช่องว่างออกเสมอ ป้องกัน Error ไม่ตรงกัน
