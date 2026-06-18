@@ -67,6 +67,7 @@
             <ul class="dropdown-menu w-100 shadow-sm p-2">
               <li><label class="dropdown-item"><input type="checkbox" class="form-check-input me-2 filter-chk filter-status" value="ยังไม่ได้รักษา"> ยังไม่ได้รักษา</label></li>
               <li><label class="dropdown-item"><input type="checkbox" class="form-check-input me-2 filter-chk filter-status" value="กำลังรักษา"> กำลังรักษา</label></li>
+              <li><label class="dropdown-item"><input type="checkbox" class="form-check-input me-2 filter-chk filter-status" value="รอผล SVR12"> รอผล SVR12</label></li>
               <li><label class="dropdown-item"><input type="checkbox" class="form-check-input me-2 filter-chk filter-status" value="รักษาหายแล้ว"> รักษาหายแล้ว</label></li>
               <li><label class="dropdown-item"><input type="checkbox" class="form-check-input me-2 filter-chk filter-status" value="รักษาไม่หาย แต่กินยาครบ"> รักษาไม่หาย แต่กินยาครบ</label></li>
               <li><label class="dropdown-item"><input type="checkbox" class="form-check-input me-2 filter-chk filter-status" value="รักษาไม่หาย เนื่องจากกินยาไม่ครบ"> รักษาไม่หายฯ กินยาไม่ครบ</label></li>
@@ -128,11 +129,11 @@
           <th>HN</th>
           <th>อายุ</th>
           <th>สถานะการรักษา</th>
+          <th>สถานะการติดตาม</th>
           <th>แหล่งที่มา</th>
           <th>HCV RNA ล่าสุด</th>
           <th>APRI Level (วันที่)</th>
           <th>FIB-4 Level (วันที่)</th>
-          <th>ยาล่าสุด</th>
           <th>กำหนดส่ง Labs ครั้งถัดไป</th>
           <th>Labs</th>
           <th>Medications</th>
@@ -471,10 +472,17 @@
   }
 
   function initFlatpickr() {
-    flatpickr(".date-th", { locale: "th", dateFormat: "d/m/Y", allowInput: true,
+    let baseOpts = { locale: "th", dateFormat: "d/m/Y", allowInput: true, disableMobile: true,
       formatDate: (date) => `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear() + 543}`,
       parseDate: (datestr) => { let parts = datestr.split('/'); return parts.length === 3 ? new Date(parts[2] - 543, parts[1] - 1, parts[0]) : new Date(); }
-    });
+    };
+    // date-th ทั่วไป (lab date, rx date, release date)
+    flatpickr(".date-th:not(#p_dob):not(#edit_p_dob)", baseOpts);
+    // DOB — เปิด picker ที่ปี 2518 (1975) ไม่ต้องเลื่อนไกล
+    flatpickr("#p_dob, #edit_p_dob", Object.assign({}, baseOpts, {
+      defaultDate: "1975-01-01",
+      maxDate: "today"
+    }));
   }
 
   function initFilterDatepickers() {
@@ -592,11 +600,10 @@
         else if (p.status === 'รอผล SVR12') { statusBadge = 'bg-info'; }
         else if (p.status && p.status.indexOf('รักษาไม่หาย') !== -1) { statusBadge = 'bg-danger'; }
 
-        let pStatusBadge = '';
-        if (p.patientStatus && p.patientStatus !== 'Active') {
-          let psBadgeColor = p.patientStatus === 'เสียชีวิต' ? 'bg-dark' : 'bg-warning text-dark';
-          pStatusBadge = `<br><span class="badge ${psBadgeColor}" style="font-size:0.7em">${p.patientStatus}</span>`;
-        }
+        let psBadge = 'bg-success';
+        if (p.patientStatus === 'เสียชีวิต') psBadge = 'bg-dark';
+        else if (p.patientStatus === 'ขาดการติดตาม') psBadge = 'bg-warning text-dark';
+        else if (p.patientStatus === 'พ้นโทษ/ย้ายออก' || p.patientStatus === 'ส่งต่อ รพ.อื่น') psBadge = 'bg-secondary';
 
         tbody.append(`
           <tr data-doc="${p.docName}" data-source="${p.source}" data-status="${p.status}" data-med="${p.medType}" data-pstatus="${p.patientStatus}" data-regdate="${regRaw}" data-rxdate="${rxRaw}">
@@ -605,13 +612,13 @@
             </td>
             <td class="clickable-cell" onclick="viewPatientProfile('${p.hn}')">${p.age}</td>
             <td class="clickable-cell" title="หมายเหตุ: ${p.remarks}" onclick="viewPatientProfile('${p.hn}')">
-              <span class="badge ${statusBadge}">${p.status}</span>${pStatusBadge}
+              <span class="badge ${statusBadge}">${p.status}</span>
             </td>
+            <td class="clickable-cell" onclick="viewPatientProfile('${p.hn}')"><span class="badge ${psBadge}">${p.patientStatus || 'Active'}</span></td>
             <td class="clickable-cell" onclick="viewPatientProfile('${p.hn}')">${p.source}</td>
             <td class="clickable-cell fw-bold text-success" onclick="viewPatientProfile('${p.hn}')">${p.hcv}</td>
             <td class="clickable-cell ${apriColor}" title="APRI Score: ${p.apriRaw}" onclick="viewPatientProfile('${p.hn}')">${p.apriDisplay}</td>
             <td class="clickable-cell ${fib4Color}" title="FIB-4 Score: ${p.fib4Raw}" onclick="viewPatientProfile('${p.hn}')">${p.fib4Display}</td>
-            <td class="clickable-cell text-info fw-bold" title="ระยะเวลา: ${p.rxWeeks} สัปดาห์" onclick="viewPatientProfile('${p.hn}')">${p.medType}</td>
             <td class="clickable-cell fw-bold text-danger" onclick="viewPatientProfile('${p.hn}')">${p.nextLabDate}</td>
             <td><button class="btn btn-sm btn-success" onclick="viewLabsHistory('${p.hn}')">Labs</button></td>
             <td><button class="btn btn-sm btn-warning font-dark" onclick="viewTxHistory('${p.hn}')">การรักษา/ยา</button></td>
