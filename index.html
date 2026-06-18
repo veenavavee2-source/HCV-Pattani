@@ -384,7 +384,7 @@
 <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-<script src="https://npmcdn.com/flatpickr/dist/l10n/th.js"></script>
+<script src="https://unpkg.com/flatpickr/dist/l10n/th.js"></script>
 
 <script>
   const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwh7kT2oXrnMTDKj8fL32dw7ZoLKNcV0NeALz3AoAAFoU4dPbIO0xSCZuLpzn0NVwaUGg/exec";
@@ -725,6 +725,7 @@
         summary += `HBsAg: ${d.hbsag || '-'}\n`;
         summary += `Anti HIV: ${d.hiv || '-'}\n`;
         // เพิ่มบรรทัดการสรุปผลคะแนน APRI และ FIB-4 พร้อมประเมิน High/Low ลงไปใน Text คัดลอก
+        summary += `Hb: ${d.hb || '-'} | Hct: ${d.hct || '-'}\n`;
         summary += `APRI: ${d.apri || '-'} (${apriLvlText})\n`;
         summary += `FIB-4: ${d.fib4 || '-'} (${fib4LvlText})\n\n`;
         
@@ -765,6 +766,7 @@
   function submitEditPatient() {
     let oldHn = $('#old_p_hn').val(), newHn = $('#edit_p_hn').val();
     if(!/^\d{7}$/.test(newHn)) return alert("รหัส HN ต้องเป็นตัวเลข 7 หลักเท่านั้นครับ");
+    if(oldHn !== newHn && !confirm(`⚠️ คำเตือน: กำลังเปลี่ยน HN จาก ${oldHn} → ${newHn}\n\nประวัติ Labs และการรักษาทั้งหมดของ HN ${oldHn} จะยังคงอยู่ในระบบแต่จะไม่เชื่อมโยงกับผู้ป่วยคนนี้อีกต่อไป\n\nต้องการดำเนินการต่อหรือไม่?`)) return;
     let releaseDate = $('#edit_p_source').val() === 'เรือนจำ' ? ($('#chkEditUnknownRelease').is(':checked') ? "Unknown" : $('#edit_p_release').val()) : "";
     let payload = { action: "updatePatient", oldHn: oldHn, newHn: newHn, idCard: $('#edit_p_id').val(), dob: $('#edit_p_dob').val(), disease: $('#edit_p_disease').val(), source: $('#edit_p_source').val(), releaseDate: releaseDate, status: $('#edit_p_status').val(), patientStatus: $('#edit_p_patient_status').val(), remarks: $('#edit_p_remark').val() };
     sendPostData(payload, () => $('#patientDetailsModal').modal('hide'));
@@ -818,11 +820,11 @@
     if (alt && (isNaN(alt) || Number(alt) <= 0)) return alert("ALT ต้องเป็นตัวเลขที่มากกว่า 0 ครับ");
     let notDetected = $('#chkNotDetected').is(':checked');
     let payload = { action: labID === '' ? "addLabResult" : "updateLabResult", labID: labID, hn: currentHN, labDate: $('#l_date').val(), hcvDetected: notDetected ? 'No' : 'Yes', hcvValue: notDetected ? '' : $('#l_hcv').val(), gfr: $('#l_gfr').val(), platelet: plt, ast: $('#l_ast').val(), alt: $('#l_alt').val(), hb: $('#l_hb').val(), hct: $('#l_hct').val(), hbsag: $('#l_hbsag').val(), hiv: $('#l_hiv').val(), labType: $('#l_type').val() };
-    sendPostData(payload, () => { $('#labFormModal').modal('hide'); });
+    sendPostData(payload, () => { $('#labFormModal').modal('hide'); setTimeout(() => viewLabsHistory(currentHN), 400); });
   }
 
-  function deleteLabAction() { let labID = $('#l_id').val(); if(confirm("ยืนยันการลบผล Lab รายการนี้ใช่หรือไม่?")) { sendPostData({ action: "deleteLabResult", labID: labID, hn: currentHN }, () => $('#labFormModal').modal('hide')); } }
-  function deleteLabRow(labID) { if(confirm("ยืนยันการลบผล Lab รายการนี้ใช่หรือไม่?")) { sendPostData({ action: "deleteLabResult", labID: labID, hn: currentHN }, () => { $('#labsHistoryModal').modal('hide'); }); } }
+  function deleteLabAction() { let labID = $('#l_id').val(); if(confirm("ยืนยันการลบผล Lab รายการนี้ใช่หรือไม่?")) { sendPostData({ action: "deleteLabResult", labID: labID, hn: currentHN }, () => { $('#labFormModal').modal('hide'); setTimeout(() => viewLabsHistory(currentHN), 400); }); } }
+  function deleteLabRow(labID) { if(confirm("ยืนยันการลบผล Lab รายการนี้ใช่หรือไม่?")) { sendPostData({ action: "deleteLabResult", labID: labID, hn: currentHN }, () => { $('#labsHistoryModal').modal('hide'); setTimeout(() => viewLabsHistory(currentHN), 400); }); } }
 
   // --- 3. รายละเอียดการรักษา/ยา ---
   function viewTxHistory(hn) {
